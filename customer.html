@@ -31,14 +31,22 @@
         </label>
       </div>
       <fieldset class="mt-3">
-        <legend class="mb-1 text-xs font-extrabold">Order Fulfillment *</legend>
+        <legend class="mb-1 text-xs font-extrabold">Order Type *</legend>
         <div class="grid grid-cols-2 gap-2">
           <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="fulfillment-pickup" type="radio" name="fulfillment" value="Pick-Up" checked onchange="setFulfillment('Pick-Up')" class="accent-[#133824]">
-            <span>🛍️ Pick-Up</span>
+            <input id="order-dinein" type="radio" name="order-type" value="Dine-In" checked onchange="setOrderType('Dine-In')" class="accent-[#133824]">
+            <span>🍽️ Dine-In</span>
           </label>
           <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="fulfillment-delivery" type="radio" name="fulfillment" value="Delivery" onchange="setFulfillment('Delivery')" class="accent-[#133824]">
+            <input id="order-takeout" type="radio" name="order-type" value="Take-Out" onchange="setOrderType('Take-Out')" class="accent-[#133824]">
+            <span>🛍️ Take-Out</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
+            <input id="order-pickup" type="radio" name="order-type" value="Pick-Up" onchange="setOrderType('Pick-Up')" class="accent-[#133824]">
+            <span>📦 Pick-Up</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
+            <input id="order-delivery" type="radio" name="order-type" value="Delivery" onchange="setOrderType('Delivery')" class="accent-[#133824]">
             <span>🛵 Delivery</span>
           </label>
         </div>
@@ -121,7 +129,7 @@
     }
 
     let cart = [];
-    let orderType = 'Pick-Up';
+    let orderType = 'Dine-In';
     let selectedItem = null;
     let selectedVariant = null;
 
@@ -149,7 +157,7 @@
       }, (error) => console.error('Menu sync failed:', error));
     });
 
-    function setFulfillment(type) {
+    function setOrderType(type) {
       orderType = type;
       document.getElementById('delivery-address-wrap').classList.toggle('hidden', type !== 'Delivery');
     }
@@ -297,9 +305,11 @@
         document.getElementById('customer-name').value = '';
         document.getElementById('customer-contact').value = '';
         document.getElementById('customer-address').value = '';
-        document.getElementById('fulfillment-pickup').checked = true;
-        document.getElementById('fulfillment-delivery').checked = false;
-        setFulfillment('Pick-Up');
+        document.getElementById('order-dinein').checked = true;
+        document.getElementById('order-takeout').checked = false;
+        document.getElementById('order-pickup').checked = false;
+        document.getElementById('order-delivery').checked = false;
+        setOrderType('Dine-In');
         toggleCart(false);
         showToast('Order sent! Please wait for confirmation.');
       } catch (error) {
