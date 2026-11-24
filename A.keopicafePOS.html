@@ -4011,10 +4011,15 @@
       try {
         const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
         firebaseDb = firebase.firestore(app);
-        firebase.auth(app).signInAnonymously().catch((error) => {
-          console.error('Anonymous POS authentication failed:', error);
+        firebase.auth(app).onAuthStateChanged((user) => {
+          if (user) {
+            syncMenuToFirebase();
+          } else {
+            firebase.auth(app).signInAnonymously().catch((error) => {
+              console.error('Anonymous POS authentication failed:', error);
+            });
+          }
         });
-        syncMenuToFirebase();
 
         firebaseDb
           .collection('orders')
