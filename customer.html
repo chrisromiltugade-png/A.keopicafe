@@ -125,14 +125,29 @@
     let selectedItem = null;
     let selectedVariant = null;
 
-    db.collection('settings').doc('customerMenu').onSnapshot((snapshot) => {
-      if (!snapshot.exists) return;
-      const remoteItems = snapshot.data().items;
-      if (Array.isArray(remoteItems)) {
+    firebase.auth().onAuthStateChanged((user) => {
+      if (!user) return;
+      db.collection('settings').doc('customerMenu').onSnapshot((snapshot) => {
+        if (!snapshot.exists) return;
+        const remoteItems = snapshot.data().items;
+        if (!Array.isArray(remoteItems)) return;
+
         menuItems = remoteItems;
+        localStorage.setItem('akeopi_pos_menu_v1', JSON.stringify(menuItems));
+
+        cart = cart.map((cartItem) => {
+          const menuItem = remoteItems.find((item) => item.name === cartItem.name);
+          if (!menuItem) return cartItem;
+          const variant = (menuItem.variants || []).find((item) => item.label === cartItem.variantLabel);
+          return variant
+            ? { ...cartItem, unitPrice: Number(variant.price), category: menuItem.category }
+            : cartItem;
+        });
+
         renderMenu();
-      }
-    }, (error) => console.error('Menu sync failed:', error));
+        renderCart();
+      }, (error) => console.error('Menu sync failed:', error));
+    });
 
     function setFulfillment(type) {
       orderType = type;
