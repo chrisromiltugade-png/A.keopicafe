@@ -21,6 +21,11 @@
       </div>
     </header>
 
+    <div id="store-hours-banner" class="mb-3 rounded-2xl border px-4 py-3 text-center">
+      <p id="store-status" class="text-sm font-extrabold"></p>
+      <p class="mt-0.5 text-xs text-stone-500">Open daily: 10:00 AM – 10:00 PM</p>
+    </div>
+
     <section class="mb-3 rounded-2xl bg-white p-3 shadow">
       <div class="grid gap-3 sm:grid-cols-2">
         <label class="block text-xs font-extrabold">Customer Name *
@@ -133,6 +138,31 @@
     let selectedItem = null;
     let selectedVariant = null;
 
+    function isStoreOpen() {
+      const parts = new Intl.DateTimeFormat('en-PH', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      const minutesNow = Number(values.hour) * 60 + Number(values.minute);
+      return minutesNow >= 10 * 60 && minutesNow < 22 * 60;
+    }
+
+    function updateStoreStatus() {
+      const open = isStoreOpen();
+      const banner = document.getElementById('store-hours-banner');
+      const status = document.getElementById('store-status');
+      const placeButton = document.getElementById('place-order');
+
+      banner.className = open
+        ? 'mb-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-emerald-800'
+        : 'mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-red-700';
+      status.textContent = open ? '🟢 Store is Open — Accepting Orders' : '🔴 Store is Closed — Ordering Paused';
+      placeButton.disabled = !open || cart.length === 0;
+    }
+
     firebase.auth().onAuthStateChanged((user) => {
       if (!user) return;
       db.collection('settings').doc('customerMenu').onSnapshot((snapshot) => {
@@ -155,6 +185,8 @@
         renderMenu();
         renderCart();
         setOrderType('Dine-In');
+        updateStoreStatus();
+        setInterval(updateStoreStatus, 30000);
       }, (error) => console.error('Menu sync failed:', error));
     });
 
@@ -228,7 +260,7 @@
       const total = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
       document.getElementById('cart-count').textContent = count;
       document.getElementById('cart-total').textContent = total.toFixed(2);
-      document.getElementById('place-order').disabled = cart.length === 0;
+      document.getElementById('place-order').disabled = cart.length === 0 || !isStoreOpen();
       document.getElementById('cart-items').innerHTML = cart.length
         ? cart.map((item, index) => `
           <div class="flex items-center justify-between rounded-xl border border-stone-200 p-3">
@@ -267,6 +299,11 @@
     }
 
     async function placeOrder() {
+      if (!isStoreOpen()) {
+        showToast('Store is closed. Ordering resumes at 10:00 AM.');
+        updateStoreStatus();
+        return;
+      }
       const name = document.getElementById('customer-name').value.trim();
       const contact = document.getElementById('customer-contact').value.trim();
       const address = document.getElementById('customer-address').value.trim();
