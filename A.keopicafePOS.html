@@ -3255,7 +3255,6 @@
       const subtotal = getCartSubtotal();
       const delivFee = getActiveDeliveryFee();
       const total = subtotal + delivFee;
-      const customerName = document.getElementById('customer-note-input').value.trim();
 
       document.getElementById('checkout-total-display').textContent = `₱${total.toFixed(2)}`;
       const metaParts = [orderType];
