@@ -26,7 +26,7 @@
         <label class="block text-xs font-extrabold">Customer Name *
           <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="Enter your name" autocomplete="name">
         </label>
-        <label class="block text-xs font-extrabold">Contact Number *
+        <label id="customer-contact-wrap" class="hidden text-xs font-extrabold">Contact Number *
           <input id="customer-contact" type="tel" inputmode="tel" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="09XXXXXXXXX" autocomplete="tel">
         </label>
       </div>
@@ -154,11 +154,15 @@
 
         renderMenu();
         renderCart();
+        setOrderType('Dine-In');
       }, (error) => console.error('Menu sync failed:', error));
     });
 
     function setOrderType(type) {
       orderType = type;
+      const needsContact = type === 'Pick-Up' || type === 'Delivery';
+      document.getElementById('customer-contact-wrap').classList.toggle('hidden', !needsContact);
+      if (!needsContact) document.getElementById('customer-contact').value = '';
       document.getElementById('delivery-address-wrap').classList.toggle('hidden', type !== 'Delivery');
     }
 
@@ -271,7 +275,7 @@
         document.getElementById('customer-name').focus();
         return;
       }
-      if (!contact) {
+      if ((orderType === 'Pick-Up' || orderType === 'Delivery') && !contact) {
         showToast('Please enter your contact number');
         document.getElementById('customer-contact').focus();
         return;
@@ -288,7 +292,7 @@
       try {
         await db.collection('orders').add({
           customerName: name,
-          customerContact: contact,
+          customerContact: (orderType === 'Pick-Up' || orderType === 'Delivery') ? contact : '',
           customerAddress: orderType === 'Delivery' ? address : '',
           fulfillment: orderType,
           orderType,
