@@ -22,13 +22,30 @@
     </header>
 
     <section class="mb-3 rounded-2xl bg-white p-3 shadow">
-      <label class="block text-xs font-extrabold">Customer Name *
-        <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="Enter your name">
-      </label>
-      <div class="mt-3 grid grid-cols-2 gap-2">
-        <button id="type-dine" type="button" onclick="setType('Dine-In')" class="rounded-xl bg-[#133824] px-3 py-2.5 text-sm font-bold text-white">🍽️ Dine-In</button>
-        <button id="type-take" type="button" onclick="setType('Take-Out')" class="rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">🛍️ Take-Out</button>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block text-xs font-extrabold">Customer Name *
+          <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="Enter your name" autocomplete="name">
+        </label>
+        <label class="block text-xs font-extrabold">Contact Number *
+          <input id="customer-contact" type="tel" inputmode="tel" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="09XXXXXXXXX" autocomplete="tel">
+        </label>
       </div>
+      <fieldset class="mt-3">
+        <legend class="mb-1 text-xs font-extrabold">Order Fulfillment *</legend>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
+            <input id="fulfillment-pickup" type="radio" name="fulfillment" value="Pick-Up" checked onchange="setFulfillment('Pick-Up')" class="accent-[#133824]">
+            <span>🛍️ Pick-Up</span>
+          </label>
+          <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
+            <input id="fulfillment-delivery" type="radio" name="fulfillment" value="Delivery" onchange="setFulfillment('Delivery')" class="accent-[#133824]">
+            <span>🛵 Delivery</span>
+          </label>
+        </div>
+      </fieldset>
+      <label id="delivery-address-wrap" class="mt-3 hidden text-xs font-extrabold">Delivery Address *
+        <input id="customer-address" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="House / Street / Barangay">
+      </label>
     </section>
 
     <section id="menu-list" class="grid grid-cols-2 gap-2 sm:grid-cols-3"></section>
@@ -104,18 +121,22 @@
     }
 
     let cart = [];
-    let orderType = 'Dine-In';
+    let orderType = 'Pick-Up';
     let selectedItem = null;
     let selectedVariant = null;
 
-    function setType(type) {
+    db.collection('settings').doc('customerMenu').onSnapshot((snapshot) => {
+      if (!snapshot.exists) return;
+      const remoteItems = snapshot.data().items;
+      if (Array.isArray(remoteItems)) {
+        menuItems = remoteItems;
+        renderMenu();
+      }
+    }, (error) => console.error('Menu sync failed:', error));
+
+    function setFulfillment(type) {
       orderType = type;
-      document.getElementById('type-dine').className = type === 'Dine-In'
-        ? 'rounded-xl bg-[#133824] px-3 py-2.5 text-sm font-bold text-white'
-        : 'rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold';
-      document.getElementById('type-take').className = type === 'Take-Out'
-        ? 'rounded-xl bg-[#133824] px-3 py-2.5 text-sm font-bold text-white'
-        : 'rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold';
+      document.getElementById('delivery-address-wrap').classList.toggle('hidden', type !== 'Delivery');
     }
 
     function renderMenu() {
@@ -220,9 +241,21 @@
 
     async function placeOrder() {
       const name = document.getElementById('customer-name').value.trim();
+      const contact = document.getElementById('customer-contact').value.trim();
+      const address = document.getElementById('customer-address').value.trim();
       if (!name) {
         showToast('Please enter your name');
         document.getElementById('customer-name').focus();
+        return;
+      }
+      if (!contact) {
+        showToast('Please enter your contact number');
+        document.getElementById('customer-contact').focus();
+        return;
+      }
+      if (orderType === 'Delivery' && !address) {
+        showToast('Please enter your delivery address');
+        document.getElementById('customer-address').focus();
         return;
       }
       if (!cart.length) return;
@@ -232,6 +265,9 @@
       try {
         await db.collection('orders').add({
           customerName: name,
+          customerContact: contact,
+          customerAddress: orderType === 'Delivery' ? address : '',
+          fulfillment: orderType,
           orderType,
           items: JSON.parse(JSON.stringify(cart)),
           subtotal,
@@ -244,6 +280,11 @@
         cart = [];
         renderCart();
         document.getElementById('customer-name').value = '';
+        document.getElementById('customer-contact').value = '';
+        document.getElementById('customer-address').value = '';
+        document.getElementById('fulfillment-pickup').checked = true;
+        document.getElementById('fulfillment-delivery').checked = false;
+        setFulfillment('Pick-Up');
         toggleCart(false);
         showToast('Order sent! Please wait for confirmation.');
       } catch (error) {

@@ -2454,6 +2454,7 @@
     function saveMenuToStorage() {
       try {
         localStorage.setItem(STORAGE_KEYS.MENU, JSON.stringify(menuItems));
+        syncMenuToFirebase();
       } catch (e) {
         console.error('Failed to save menu:', e);
       }
@@ -3988,6 +3989,23 @@
     // =========================================================================
     // 12. FIREBASE CUSTOMER ORDER NOTIFICATIONS
     // =========================================================================
+    function syncMenuToFirebase() {
+      if (!firebaseDb && window.firebase) {
+        try {
+          const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+          firebaseDb = firebase.firestore(app);
+        } catch (error) {
+          console.error('Firebase menu sync initialization failed:', error);
+          return;
+        }
+      }
+      if (!firebaseDb) return;
+      firebaseDb.collection('settings').doc('customerMenu').set({
+        items: JSON.parse(JSON.stringify(menuItems)),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }).catch((error) => console.error('Failed to sync customer menu:', error));
+    }
+
     function initFirebaseCustomerOrders() {
       if (!window.firebase) return;
       try {
@@ -3996,6 +4014,7 @@
         firebase.auth(app).signInAnonymously().catch((error) => {
           console.error('Anonymous POS authentication failed:', error);
         });
+        syncMenuToFirebase();
 
         firebaseDb
           .collection('orders')
@@ -4043,6 +4062,9 @@
       list.innerHTML = pendingCustomerOrders.map((order) => {
         const created = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : 'Now';
         const items = (order.items || []).map((item) => `${item.qty}× ${item.name} (${item.variantLabel})`).join(', ');
+        const fulfillment = order.fulfillment || order.orderType || 'Pick-Up';
+        const contact = order.customerContact ? ` • ${order.customerContact}` : '';
+        const address = order.customerAddress ? ` • ${order.customerAddress}` : '';
         return `
           <button type="button" onclick="loadCustomerOrder('${order.id}')"
             class="w-full text-left p-3 rounded-xl border border-cream-200 bg-cream-50 hover:border-forest-700 hover:bg-white dark:border-stone-700 dark:bg-stone-800 dark:hover:border-amber-400 transition">
@@ -4050,7 +4072,7 @@
               <span class="font-extrabold text-sm text-forest-800 dark:text-amber-200">${order.customerName || 'Customer'}</span>
               <span class="text-[10px] font-bold text-stone-500">${created}</span>
             </div>
-            <p class="mt-1 text-xs text-stone-600 dark:text-stone-300">${order.orderType || 'Dine-In'} • ₱${Number(order.total || 0).toFixed(2)}</p>
+            <p class="mt-1 text-xs text-stone-600 dark:text-stone-300">${fulfillment}${contact}${address} • ₱${Number(order.total || 0).toFixed(2)}</p>
             <p class="mt-1 text-[11px] text-stone-500 truncate">${items}</p>
           </button>
         `;
@@ -4073,7 +4095,7 @@
         note: item.note || ''
       }));
 
-      setOrderType(order.orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In');
+      setOrderType(order.fulfillment === 'Delivery' ? 'Take-Out' : 'Dine-In');
       document.getElementById('customer-note-input').value = order.customerName || '';
       resetDeliveryFeeControl();
       if (Number(order.deliveryFee || 0) > 0) {
