@@ -13,6 +13,9 @@
   <link rel="apple-touch-icon" href="icon.png" />
   <title>A.Keopi Cafe — Point of Sale (POS)</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
@@ -161,6 +164,19 @@
 
       <!-- Action Buttons -->
       <div class="order-2 lg:order-3 flex items-center gap-1.5 sm:gap-2">
+        <button
+          id="pending-orders-btn"
+          onclick="togglePendingOrdersPanel()"
+          class="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
+          title="Customer online orders"
+        >
+          <svg class="w-4 h-4 text-forest-700 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0" />
+          </svg>
+          <span class="hidden sm:inline">Incoming</span>
+          <span id="pending-orders-badge" class="hidden min-w-5 px-1.5 py-0.5 rounded-full bg-red-600 text-white text-[11px] font-extrabold text-center">0</span>
+        </button>
+
         <!-- Today's Sales Quick Pill -->
         <button
           onclick="openHistoryModal()"
@@ -2379,6 +2395,17 @@
     let selectedFlavors = [];
     let selectedAddonIndices = new Set();
     let modalQuantity = 1;
+    let pendingCustomerOrders = [];
+    let firebaseDb = null;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCKyxAyc7wrDRCDhMrOKT50JYq4zj_wZow",
+      authDomain: "akeopicafe-order.firebaseapp.com",
+      projectId: "akeopicafe-order",
+      storageBucket: "akeopicafe-order.firebasestorage.app",
+      messagingSenderId: "43301188783",
+      appId: "1:43301188783:web:483fadd21a8c7d7e99905a"
+    };
 
     // =========================================================================
     // 3. INITIALIZATION
@@ -2392,6 +2419,7 @@
       renderCart();
       updateHeaderSalesBadge();
       startLiveClock();
+      initFirebaseCustomerOrders();
 
       // Search input listener
       const searchInput = document.getElementById('search-input');
@@ -3959,7 +3987,121 @@
     }
 
     // =========================================================================
-    // 12. TOAST FEEDBACK HELPER
+    // 12. FIREBASE CUSTOMER ORDER NOTIFICATIONS
+    // =========================================================================
+    function initFirebaseCustomerOrders() {
+      if (!window.firebase) return;
+      try {
+        const app = firebase.apps.length ? firebase.app() : firebase.initializeApp(firebaseConfig);
+        firebaseDb = firebase.firestore(app);
+        firebase.auth(app).signInAnonymously().catch((error) => {
+          console.error('Anonymous POS authentication failed:', error);
+        });
+
+        firebaseDb
+          .collection('orders')
+          .where('status', '==', 'pending')
+          .onSnapshot((snapshot) => {
+            pendingCustomerOrders = snapshot.docs
+              .map((doc) => ({ id: doc.id, ...doc.data() }))
+              .sort((a, b) => {
+                const at = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+                const bt = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+                return bt - at;
+              });
+            renderPendingCustomerOrders();
+          }, (error) => {
+            console.error('Customer order listener failed:', error);
+          });
+      } catch (error) {
+        console.error('Firebase initialization failed:', error);
+      }
+    }
+
+    function togglePendingOrdersPanel(open) {
+      const panel = document.getElementById('pending-orders-panel');
+      if (typeof open === 'boolean') {
+        panel.classList.toggle('hidden', !open);
+        panel.classList.toggle('flex', open);
+      } else {
+        const isOpen = !panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', isOpen);
+        panel.classList.toggle('flex', !isOpen);
+      }
+    }
+
+    function renderPendingCustomerOrders() {
+      const badge = document.getElementById('pending-orders-badge');
+      badge.textContent = pendingCustomerOrders.length;
+      badge.classList.toggle('hidden', pendingCustomerOrders.length === 0);
+
+      const list = document.getElementById('pending-orders-list');
+      if (pendingCustomerOrders.length === 0) {
+        list.innerHTML = '<div class="py-8 text-center text-xs text-stone-400">No incoming customer orders</div>';
+        return;
+      }
+
+      list.innerHTML = pendingCustomerOrders.map((order) => {
+        const created = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : 'Now';
+        const items = (order.items || []).map((item) => `${item.qty}× ${item.name} (${item.variantLabel})`).join(', ');
+        return `
+          <button type="button" onclick="loadCustomerOrder('${order.id}')"
+            class="w-full text-left p-3 rounded-xl border border-cream-200 bg-cream-50 hover:border-forest-700 hover:bg-white dark:border-stone-700 dark:bg-stone-800 dark:hover:border-amber-400 transition">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-extrabold text-sm text-forest-800 dark:text-amber-200">${order.customerName || 'Customer'}</span>
+              <span class="text-[10px] font-bold text-stone-500">${created}</span>
+            </div>
+            <p class="mt-1 text-xs text-stone-600 dark:text-stone-300">${order.orderType || 'Dine-In'} • ₱${Number(order.total || 0).toFixed(2)}</p>
+            <p class="mt-1 text-[11px] text-stone-500 truncate">${items}</p>
+          </button>
+        `;
+      }).join('');
+    }
+
+    async function loadCustomerOrder(orderId) {
+      const order = pendingCustomerOrders.find((entry) => entry.id === orderId);
+      if (!order || !firebaseDb) return;
+
+      cart = (order.items || []).map((item) => ({
+        cartId: `customer-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        name: item.name,
+        category: item.category || '',
+        variantLabel: item.variantLabel,
+        unitPrice: Number(item.unitPrice),
+        qty: Number(item.qty),
+        flavors: item.flavors || [],
+        addons: item.addons || [],
+        note: item.note || ''
+      }));
+
+      setOrderType(order.orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In');
+      document.getElementById('customer-note-input').value = order.customerName || '';
+      resetDeliveryFeeControl();
+      if (Number(order.deliveryFee || 0) > 0) {
+        deliveryFeeEnabled = true;
+        deliveryFeeAmount = Number(order.deliveryFee);
+        document.getElementById('delivery-fee-checkbox').checked = true;
+        document.getElementById('delivery-fee-input').disabled = false;
+        document.getElementById('delivery-fee-input').value = deliveryFeeAmount;
+      }
+
+      renderCart();
+      togglePendingOrdersPanel(false);
+      toggleMobileCart(true);
+      showToast(`Loaded ${order.customerName || 'customer'} order`);
+
+      try {
+        await firebaseDb.collection('orders').doc(orderId).update({
+          status: 'accepted',
+          acceptedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+      } catch (error) {
+        console.error('Failed to mark order accepted:', error);
+      }
+    }
+
+    // =========================================================================
+    // 13. TOAST FEEDBACK HELPER
     // =========================================================================
     let toastTimeout = null;
     function showToast(msg) {
@@ -3981,5 +4123,17 @@
       });
     }
   </script>
+  <div id="pending-orders-panel" class="fixed right-3 top-[64px] z-[60] hidden w-[calc(100vw-24px)] max-w-md max-h-[70vh] flex-col rounded-2xl border border-cream-300 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
+    <div class="flex items-center justify-between border-b border-cream-200 px-4 py-3 dark:border-stone-800">
+      <div>
+        <h3 class="font-extrabold text-sm text-forest-800 dark:text-amber-200">Customer Orders</h3>
+        <p class="text-[11px] text-stone-500">Click an order to load it into the POS</p>
+      </div>
+      <button type="button" onclick="togglePendingOrdersPanel(false)" class="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Close">
+        ×
+      </button>
+    </div>
+    <div id="pending-orders-list" class="overflow-y-auto p-3 space-y-2"></div>
+  </div>
 </body>
 </html>
