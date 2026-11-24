@@ -9,15 +9,15 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 </head>
-<body class="bg-[#F6EDE0] text-[#421E0E]">
+<body class="bg-[#FFFDF8] text-[#2F2A21]">
   <main class="mx-auto min-h-screen max-w-3xl p-3 pb-32 sm:p-5">
-    <header class="mb-4 flex items-center gap-3 rounded-2xl bg-[#133824] p-4 text-white shadow-lg">
+    <header class="mb-4 flex items-center gap-3 rounded-2xl border border-[#D8B55A] bg-white p-4 text-[#2F2A21] shadow-lg">
       <div class="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-1">
         <img src="./A-keopicafe-logo.jpg" alt="A.Keopi Cafe logo" class="h-full w-full object-contain">
       </div>
       <div>
         <h1 class="font-serif text-xl font-extrabold">A.Keopi Cafe</h1>
-        <p class="text-xs text-white/70">Customer Ordering</p>
+        <p class="text-xs text-[#A77D1D]">Customer Ordering</p>
       </div>
     </header>
 
@@ -28,7 +28,7 @@
         href="https://www.google.com/maps/search/?api=1&query=Beside%20RAMDC%20Concordia%20along%20highway%2C%20Bolinao%2C%20Pangasinan%2C%20Philippines%202406"
         target="_blank"
         rel="noopener"
-        class="mt-2 inline-block text-xs font-bold text-[#1C4B32] underline"
+        class="mt-2 inline-block text-xs font-bold text-[#A77D1D] underline"
       >
         📍 Beside RAMDC Concordia along highway, Bolinao, Pangasinan, Philippines, 2406
       </a>
@@ -37,35 +37,35 @@
     <section class="mb-3 rounded-2xl bg-white p-3 shadow">
       <div class="grid gap-3 sm:grid-cols-2">
         <label class="block text-xs font-extrabold">Customer Name *
-          <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="Enter your name" autocomplete="name">
+          <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="Enter your name" autocomplete="name">
         </label>
         <label id="customer-contact-wrap" class="hidden text-xs font-extrabold">Contact Number *
-          <input id="customer-contact" type="tel" inputmode="tel" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="09XXXXXXXXX" autocomplete="tel">
+          <input id="customer-contact" type="tel" inputmode="tel" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="09XXXXXXXXX" autocomplete="tel">
         </label>
       </div>
       <fieldset class="mt-3">
         <legend class="mb-1 text-xs font-extrabold">Order Type *</legend>
         <div class="grid grid-cols-2 gap-2">
           <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="order-dinein" type="radio" name="order-type" value="Dine-In" checked onchange="setOrderType('Dine-In')" class="accent-[#133824]">
+            <input id="order-dinein" type="radio" name="order-type" value="Dine-In" checked onchange="setOrderType('Dine-In')" class="accent-[#C9A84D]">
             <span>🍽️ Dine-In</span>
           </label>
           <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="order-takeout" type="radio" name="order-type" value="Take-Out" onchange="setOrderType('Take-Out')" class="accent-[#133824]">
+            <input id="order-takeout" type="radio" name="order-type" value="Take-Out" onchange="setOrderType('Take-Out')" class="accent-[#C9A84D]">
             <span>🛍️ Take-Out</span>
           </label>
           <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="order-pickup" type="radio" name="order-type" value="Pick-Up" onchange="setOrderType('Pick-Up')" class="accent-[#133824]">
+            <input id="order-pickup" type="radio" name="order-type" value="Pick-Up" onchange="setOrderType('Pick-Up')" class="accent-[#C9A84D]">
             <span>📦 Pick-Up</span>
           </label>
           <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="order-delivery" type="radio" name="order-type" value="Delivery" onchange="setOrderType('Delivery')" class="accent-[#133824]">
+            <input id="order-delivery" type="radio" name="order-type" value="Delivery" onchange="setOrderType('Delivery')" class="accent-[#C9A84D]">
             <span>🛵 Delivery</span>
           </label>
         </div>
       </fieldset>
       <label id="delivery-address-wrap" class="mt-3 hidden text-xs font-extrabold">Delivery Address *
-        <input id="customer-address" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#133824]" placeholder="House / Street / Barangay">
+        <input id="customer-address" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="House / Street / Barangay">
       </label>
     </section>
 
@@ -79,7 +79,7 @@
         <p class="text-lg font-extrabold text-[#133824]">₱<span id="cart-total">0.00</span></p>
       </div>
       <button id="cart-toggle" type="button" onclick="toggleCart()" class="rounded-xl border border-stone-300 px-4 py-3 text-sm font-bold">View Order</button>
-      <button id="place-order" type="button" onclick="placeOrder()" class="rounded-xl bg-[#133824] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-40" disabled>Place Order</button>
+      <button id="place-order" type="button" onclick="placeOrder()" class="rounded-xl border border-[#C9A84D] bg-[#C9A84D] px-5 py-3 text-sm font-extrabold text-white disabled:opacity-40" disabled>Place Order</button>
     </div>
   </aside>
 
@@ -103,11 +103,11 @@
         <button type="button" onclick="closeItemModal()" class="rounded-lg px-3 py-2">×</button>
       </div>
       <div id="variant-list" class="space-y-2"></div>
-      <button type="button" onclick="addSelectedItem()" class="mt-4 w-full rounded-xl bg-[#133824] py-3 text-sm font-extrabold text-white">Add to Order</button>
+      <button type="button" onclick="addSelectedItem()" class="mt-4 w-full rounded-xl border border-[#C9A84D] bg-[#C9A84D] py-3 text-sm font-extrabold text-white">Add to Order</button>
     </div>
   </div>
 
-  <div id="toast" class="fixed left-1/2 top-4 z-[70] hidden -translate-x-1/2 rounded-xl bg-[#133824] px-4 py-2.5 text-sm font-bold text-white shadow-lg"></div>
+  <div id="toast" class="fixed left-1/2 top-4 z-[70] hidden -translate-x-1/2 rounded-xl border border-[#C9A84D] bg-[#7A5A12] px-4 py-2.5 text-sm font-bold text-white shadow-lg"></div>
 
   <script>
     const firebaseConfig = {
@@ -165,8 +165,8 @@
       const placeButton = document.getElementById('place-order');
 
       banner.className = open
-        ? 'mb-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-emerald-800'
-        : 'mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-red-700';
+        ? 'mb-3 rounded-2xl border border-[#D8B55A] bg-[#FFF9E8] px-4 py-3 text-center text-[#7A5A12]'
+          : 'mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-red-700';
       status.textContent = open ? '🟢 Store is Open — Accepting Orders' : '🔴 Store is Closed — Ordering Paused';
       placeButton.disabled = !open || cart.length === 0;
     }
@@ -192,9 +192,6 @@
 
         renderMenu();
         renderCart();
-        setOrderType('Dine-In');
-        updateStoreStatus();
-        setInterval(updateStoreStatus, 30000);
       }, (error) => console.error('Menu sync failed:', error));
     });
 
@@ -217,7 +214,7 @@
           class="rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm">
           <p class="truncate text-[10px] font-bold uppercase text-[#1C4B32]">${item.category}</p>
           <h3 class="mt-1 min-h-10 text-sm font-extrabold">${item.name}</h3>
-          <p class="mt-2 text-sm font-extrabold text-[#133824]">${price}</p>
+          <p class="mt-2 text-sm font-extrabold text-[#A77D1D]">${price}</p>
         </button>`;
       }).join('');
     }
@@ -230,7 +227,7 @@
       document.getElementById('item-name').textContent = selectedItem.name;
       document.getElementById('variant-list').innerHTML = selectedItem.variants.map((variant, index) =>
         `<button type="button" onclick="selectVariant(${index})" id="variant-${index}"
-          class="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? 'border-[#133824] bg-[#133824]/10 font-bold' : 'border-stone-300'}">
+          class="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? 'border-[#C9A84D] bg-[#FFF9E8] font-bold' : 'border-stone-300'}">
           <span>${variant.label}</span><span>₱${variant.price}</span>
         </button>`
       ).join('');
@@ -244,7 +241,7 @@
       selectedItem.variants.forEach((_, i) => {
         const button = document.getElementById(`variant-${i}`);
         button.className = i === index
-          ? 'flex w-full items-center justify-between rounded-xl border border-[#133824] bg-[#133824]/10 px-3 py-2.5 text-sm font-bold'
+          ? 'flex w-full items-center justify-between rounded-xl border border-[#C9A84D] bg-[#FFF9E8] px-3 py-2.5 text-sm font-bold'
           : 'flex w-full items-center justify-between rounded-xl border border-stone-300 px-3 py-2.5 text-sm';
       });
     }
