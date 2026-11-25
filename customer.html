@@ -107,6 +107,16 @@
     </div>
   </div>
 
+  <div id="order-confirmation" class="fixed inset-0 z-[65] hidden items-center justify-center bg-black/60 p-4">
+    <section class="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl">
+      <p class="text-sm font-bold text-[#1C4B32]">Order sent!</p>
+      <h2 class="mt-1 text-xl font-extrabold">Your order code</h2>
+      <p id="order-confirmation-code" class="my-4 rounded-xl bg-[#FFF9E8] py-4 font-mono text-4xl font-extrabold tracking-widest text-[#7A5A12]"></p>
+      <p class="text-sm text-stone-600">Ibigay o ipakita ang code na ito sa cashier para makuha ang order mo.</p>
+      <button type="button" onclick="closeOrderConfirmation()" class="mt-5 w-full rounded-xl bg-[#133824] py-3 text-sm font-extrabold text-white">Done</button>
+    </section>
+  </div>
+
   <div id="toast" class="fixed left-1/2 top-4 z-[70] hidden -translate-x-1/2 rounded-xl border border-[#C9A84D] bg-[#7A5A12] px-4 py-2.5 text-sm font-bold text-white shadow-lg"></div>
 
   <script>
@@ -303,6 +313,16 @@
       setTimeout(() => toast.classList.add('hidden'), 2600);
     }
 
+    function generateOrderCode() {
+      return String(Math.floor(100000000 + Math.random() * 900000000));
+    }
+
+    function closeOrderConfirmation() {
+      const confirmation = document.getElementById('order-confirmation');
+      confirmation.classList.add('hidden');
+      confirmation.classList.remove('flex');
+    }
+
     async function placeOrder() {
       if (!isStoreOpen()) {
         showToast('Store is closed. Ordering resumes at 10:00 AM.');
@@ -331,8 +351,10 @@
       const button = document.getElementById('place-order');
       button.disabled = true;
       const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+      const orderCode = generateOrderCode();
       try {
         await db.collection('orders').add({
+          orderCode,
           customerName: name,
           customerContact: (orderType === 'Pick-Up' || orderType === 'Delivery') ? contact : '',
           customerAddress: orderType === 'Delivery' ? address : '',
@@ -357,7 +379,10 @@
         document.getElementById('order-delivery').checked = false;
         setOrderType('Dine-In');
         toggleCart(false);
-        showToast('Order sent! Please wait for confirmation.');
+        document.getElementById('order-confirmation-code').textContent = orderCode;
+        const confirmation = document.getElementById('order-confirmation');
+        confirmation.classList.remove('hidden');
+        confirmation.classList.add('flex');
       } catch (error) {
         console.error(error);
         showToast('Unable to send order. Please try again.');
