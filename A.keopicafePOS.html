@@ -4088,8 +4088,8 @@
       const input = document.getElementById('customer-order-code-input');
       const message = document.getElementById('customer-order-code-message');
       const code = input.value.trim();
-      if (!/^\d{9}$/.test(code)) {
-        message.textContent = 'Maglagay ng 9-digit order code.';
+      if (!/^\d{4}$/.test(code)) {
+        message.textContent = 'Maglagay ng 4-digit order code.';
         return;
       }
 
@@ -4181,7 +4181,7 @@
     <form class="border-b border-cream-200 p-3 dark:border-stone-800" onsubmit="event.preventDefault(); findCustomerOrderByCode()">
       <label for="customer-order-code-input" class="mb-1 block text-xs font-bold">Load order using customer code</label>
       <div class="flex gap-2">
-        <input id="customer-order-code-input" type="text" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9-digit code"
+        <input id="customer-order-code-input" type="text" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="4-digit code"
           class="min-w-0 flex-1 rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-stone-700 dark:bg-stone-800" />
         <button type="submit" class="rounded-lg bg-forest-800 px-3 py-2 text-sm font-bold text-white">Find</button>
       </div>
