@@ -5,8 +5,8 @@
   "start_url": "./A.keopicafePOS.html",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#0B0B0B",
-  "theme_color": "#0B0B0B",
+  "background_color": "#FDFBF7",
+  "theme_color": "#133824",
   "orientation": "any",
   "icons": [
     {
