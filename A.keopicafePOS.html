@@ -4074,7 +4074,7 @@
           <button type="button" onclick="loadCustomerOrder('${order.id}')"
             class="w-full text-left p-3 rounded-xl border border-cream-200 bg-cream-50 hover:border-forest-700 hover:bg-white dark:border-stone-700 dark:bg-stone-800 dark:hover:border-amber-400 transition">
             <div class="flex items-center justify-between gap-2">
-              <span class="font-extrabold text-sm text-forest-800 dark:text-amber-200">${order.customerName || 'Customer'}</span>
+              <span class="font-extrabold text-sm text-forest-800 dark:text-amber-200">${order.customerName || 'Customer'}${order.orderCode ? ` • #${order.orderCode}` : ''}</span>
               <span class="text-[10px] font-bold text-stone-500">${created}</span>
             </div>
             <p class="mt-1 text-xs text-stone-600 dark:text-stone-300">${fulfillment}${contact}${address} • ₱${Number(order.total || 0).toFixed(2)}</p>
@@ -4082,6 +4082,25 @@
           </button>
         `;
       }).join('');
+    }
+
+    async function findCustomerOrderByCode() {
+      const input = document.getElementById('customer-order-code-input');
+      const message = document.getElementById('customer-order-code-message');
+      const code = input.value.trim();
+      if (!/^\d{9}$/.test(code)) {
+        message.textContent = 'Maglagay ng 9-digit order code.';
+        return;
+      }
+
+      const order = pendingCustomerOrders.find((entry) => String(entry.orderCode || '') === code);
+      if (!order) {
+        message.textContent = 'Walang pending order na tumutugma sa code na ito.';
+        return;
+      }
+
+      message.textContent = '';
+      await loadCustomerOrder(order.id);
     }
 
     async function loadCustomerOrder(orderId) {
@@ -4159,6 +4178,15 @@
         ×
       </button>
     </div>
+    <form class="border-b border-cream-200 p-3 dark:border-stone-800" onsubmit="event.preventDefault(); findCustomerOrderByCode()">
+      <label for="customer-order-code-input" class="mb-1 block text-xs font-bold">Load order using customer code</label>
+      <div class="flex gap-2">
+        <input id="customer-order-code-input" type="text" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" placeholder="9-digit code"
+          class="min-w-0 flex-1 rounded-lg border border-cream-300 bg-white px-3 py-2 text-sm dark:border-stone-700 dark:bg-stone-800" />
+        <button type="submit" class="rounded-lg bg-forest-800 px-3 py-2 text-sm font-bold text-white">Find</button>
+      </div>
+      <p id="customer-order-code-message" class="mt-1 text-xs text-red-600" aria-live="polite"></p>
+    </form>
     <div id="pending-orders-list" class="overflow-y-auto p-3 space-y-2"></div>
   </div>
 </body>
