@@ -39,9 +39,6 @@
         <label class="block text-xs font-extrabold">Customer Name *
           <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="Enter your name" autocomplete="name">
         </label>
-        <label id="customer-contact-wrap" class="hidden text-xs font-extrabold">Contact Number *
-          <input id="customer-contact" type="tel" inputmode="tel" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="09XXXXXXXXX" autocomplete="tel">
-        </label>
       </div>
       <fieldset class="mt-3">
         <legend class="mb-1 text-xs font-extrabold">Order Type *</legend>
@@ -54,22 +51,17 @@
             <input id="order-takeout" type="radio" name="order-type" value="Take-Out" onchange="setOrderType('Take-Out')" class="accent-[#C9A84D]">
             <span>🛍️ Take-Out</span>
           </label>
-          <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="order-pickup" type="radio" name="order-type" value="Pick-Up" onchange="setOrderType('Pick-Up')" class="accent-[#C9A84D]">
-            <span>📦 Pick-Up</span>
-          </label>
-          <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-            <input id="order-delivery" type="radio" name="order-type" value="Delivery" onchange="setOrderType('Delivery')" class="accent-[#C9A84D]">
-            <span>🛵 Delivery</span>
-          </label>
         </div>
       </fieldset>
-      <label id="delivery-address-wrap" class="mt-3 hidden text-xs font-extrabold">Delivery Address *
-        <input id="customer-address" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="House / Street / Barangay">
-      </label>
     </section>
 
-    <section id="menu-list" class="grid grid-cols-2 gap-2 sm:grid-cols-3"></section>
+    <section class="mb-3 rounded-2xl bg-white p-3 shadow">
+      <label for="menu-search" class="block text-xs font-extrabold">Search Menu
+        <input id="menu-search" type="search" oninput="setMenuSearch(this.value)" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="Search drinks, meals, snacks..." autocomplete="off">
+      </label>
+      <nav id="menu-categories" class="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Menu categories"></nav>
+    </section>
+    <section id="menu-list" class="space-y-5"></section>
   </main>
 
   <aside class="fixed inset-x-0 bottom-0 z-40 border-t border-stone-200 bg-white p-3 shadow-[0_-8px_30px_rgba(0,0,0,.12)]">
@@ -90,11 +82,19 @@
         <button type="button" onclick="toggleCart(false)" class="rounded-lg px-3 py-2 text-sm">Close</button>
       </div>
       <div id="cart-items" class="space-y-2"></div>
+      <label for="payment-method" class="mt-4 block text-xs font-extrabold">Payment Method <span class="font-normal text-stone-500">(Optional)</span>
+        <select id="payment-method" class="mt-1 w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30">
+          <option value="">Choose later / Not selected</option>
+          <option value="Cash">Cash</option>
+          <option value="GCash">GCash</option>
+          <option value="Maya">Maya</option>
+        </select>
+      </label>
     </div>
   </div>
 
   <div id="item-modal" class="fixed inset-0 z-[60] hidden items-end bg-black/50 sm:items-center sm:justify-center sm:p-4">
-    <div class="w-full max-w-md rounded-t-3xl bg-white p-4 sm:rounded-3xl">
+    <div class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-4 sm:rounded-3xl">
       <div class="mb-3 flex items-start justify-between">
         <div>
           <p id="item-category" class="text-[10px] font-bold uppercase text-[#1C4B32]"></p>
@@ -103,7 +103,8 @@
         <button type="button" onclick="closeItemModal()" class="rounded-lg px-3 py-2">×</button>
       </div>
       <div id="variant-list" class="space-y-2"></div>
-      <button type="button" onclick="addSelectedItem()" class="mt-4 w-full rounded-xl border border-[#C9A84D] bg-[#C9A84D] py-3 text-sm font-extrabold text-white">Add to Order</button>
+      <div id="addon-list" class="mt-4 space-y-2"></div>
+      <button id="add-item-button" type="button" onclick="addSelectedItem()" class="mt-4 w-full rounded-xl border border-[#C9A84D] bg-[#C9A84D] py-3 text-sm font-extrabold text-white">Add to Order</button>
     </div>
   </div>
 
@@ -139,15 +140,17 @@
     } catch (e) {}
 
     if (!menuItems.length) {
+      const coffeeAddons = [{ name: 'Espresso Shot', price: 35 }, { name: 'Flavored Syrup', price: 15 }, { name: 'Whipcream', price: 25 }];
+      const mealAddons = [{ name: 'Spam', price: 20 }, { name: 'Egg', price: 20 }, { name: 'Rice', price: 25 }];
       menuItems = [
-        { id: 'coffee-1', name: 'Americano', category: 'Coffee', variants: [{label:'12oz',price:89},{label:'16oz',price:109}], available:true },
-        { id: 'coffee-2', name: 'Cafe Latte', category: 'Coffee', variants: [{label:'12oz',price:109},{label:'16oz',price:129}], available:true },
-        { id: 'coffee-3', name: 'Cappuccino', category: 'Coffee', variants: [{label:'12oz',price:109},{label:'16oz',price:129}], available:true },
-        { id: 'coffee-4', name: 'Spanish Latte', category: 'Coffee', variants: [{label:'12oz',price:119},{label:'16oz',price:139}], available:true },
-        { id: 'frappe-1', name: 'Mocha Frappe', category: 'Frappe', variants: [{label:'16oz',price:139}], available:true },
-        { id: 'frappe-2', name: 'Caramel Frappe', category: 'Frappe', variants: [{label:'16oz',price:139}], available:true },
-        { id: 'rice-1', name: 'Chicken Inasal', category: 'Rice Meals', variants: [{label:'Regular',price:149}], available:true },
-        { id: 'rice-2', name: 'Pork Sisig', category: 'Rice Meals', variants: [{label:'Regular',price:159}], available:true }
+        { id: 'coffee-1', name: 'Americano', category: 'Coffee', variants: [{label:'12oz',price:89},{label:'16oz',price:109}], addons: coffeeAddons, available:true },
+        { id: 'coffee-2', name: 'Cafe Latte', category: 'Coffee', variants: [{label:'12oz',price:109},{label:'16oz',price:129}], addons: coffeeAddons, available:true },
+        { id: 'coffee-3', name: 'Cappuccino', category: 'Coffee', variants: [{label:'12oz',price:109},{label:'16oz',price:129}], addons: coffeeAddons, available:true },
+        { id: 'coffee-4', name: 'Spanish Latte', category: 'Coffee', variants: [{label:'12oz',price:119},{label:'16oz',price:139}], addons: coffeeAddons, available:true },
+        { id: 'frappe-1', name: 'Mocha Frappe', category: 'Frappe', variants: [{label:'16oz',price:139}], addons: coffeeAddons, available:true },
+        { id: 'frappe-2', name: 'Caramel Frappe', category: 'Frappe', variants: [{label:'16oz',price:139}], addons: coffeeAddons, available:true },
+        { id: 'rice-1', name: 'Chicken Inasal', category: 'Rice Meals', variants: [{label:'Regular',price:149}], addons: mealAddons, available:true },
+        { id: 'rice-2', name: 'Pork Sisig', category: 'Rice Meals', variants: [{label:'Regular',price:159}], addons: mealAddons, available:true }
       ];
     }
 
@@ -155,6 +158,9 @@
     let orderType = 'Dine-In';
     let selectedItem = null;
     let selectedVariant = null;
+    let selectedAddons = new Set();
+    let activeCategory = 'All';
+    let menuSearch = '';
 
     function isStoreOpen() {
       const parts = new Intl.DateTimeFormat('en-PH', {
@@ -192,11 +198,16 @@
         localStorage.setItem('akeopi_pos_menu_v1', JSON.stringify(menuItems));
 
         cart = cart.map((cartItem) => {
-          const menuItem = remoteItems.find((item) => item.name === cartItem.name);
+          const menuItem = remoteItems.find((item) => item.id === cartItem.itemId || item.name === cartItem.name);
           if (!menuItem) return cartItem;
           const variant = (menuItem.variants || []).find((item) => item.label === cartItem.variantLabel);
           return variant
-            ? { ...cartItem, unitPrice: Number(variant.price), category: menuItem.category }
+            ? {
+              ...cartItem,
+              basePrice: Number(variant.price),
+              unitPrice: Number(variant.price) + (cartItem.addons || []).reduce((sum, addon) => sum + Number(addon.price), 0),
+              category: menuItem.category
+            }
             : cartItem;
         });
 
@@ -207,32 +218,86 @@
 
     function setOrderType(type) {
       orderType = type;
-      const needsContact = type === 'Pick-Up' || type === 'Delivery';
-      document.getElementById('customer-contact-wrap').classList.toggle('hidden', !needsContact);
-      if (!needsContact) document.getElementById('customer-contact').value = '';
-      document.getElementById('delivery-address-wrap').classList.toggle('hidden', type !== 'Delivery');
     }
 
     function renderMenu() {
       const list = document.getElementById('menu-list');
-      list.innerHTML = menuItems.filter((item) => item.available !== false).map((item) => {
-        const prices = item.variants.map((v) => v.price);
+      const availableItems = menuItems.filter((item) => item.available !== false && Array.isArray(item.variants) && item.variants.length);
+      const categories = [...new Set(availableItems.map((item) => item.category || 'Other'))];
+      if (activeCategory !== 'All' && !categories.includes(activeCategory)) activeCategory = 'All';
+      document.getElementById('menu-categories').innerHTML = ['All', ...categories].map((category) =>
+        `<button type="button" onclick="selectMenuCategory('${category.replace(/'/g, "\\'")}')" aria-pressed="${category === activeCategory}"
+          class="shrink-0 rounded-full border px-3 py-2 text-xs font-bold ${category === activeCategory ? 'border-[#133824] bg-[#133824] text-white' : 'border-stone-300 bg-white text-stone-700'}">${category}</button>`
+      ).join('');
+
+      const filtered = availableItems.filter((item) => {
+        const matchesCategory = activeCategory === 'All' || item.category === activeCategory;
+        const query = menuSearch.trim().toLowerCase();
+        const matchesSearch = !query || item.name.toLowerCase().includes(query) || (item.category || '').toLowerCase().includes(query);
+        return matchesCategory && matchesSearch;
+      });
+      if (!filtered.length) {
+        list.innerHTML = '<p class="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center text-sm text-stone-500">No menu items found. Try another search or category.</p>';
+        return;
+      }
+
+      const visibleCategories = activeCategory === 'All' ? [...new Set(filtered.map((item) => item.category || 'Other'))] : [activeCategory];
+      list.innerHTML = visibleCategories.map((category) => {
+        const categoryItems = filtered.filter((item) => (item.category || 'Other') === category);
+        const cards = categoryItems.map((item) => {
+        const prices = item.variants.map((v) => Number(v.price));
         const price = Math.min(...prices) === Math.max(...prices)
           ? `₱${Math.min(...prices)}`
           : `₱${Math.min(...prices)}–₱${Math.max(...prices)}`;
         return `<button type="button" onclick="openItemModal('${item.id}')"
-          class="rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm">
-          <p class="truncate text-[10px] font-bold uppercase text-[#1C4B32]">${item.category}</p>
+          class="rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-[#C9A84D]">
           <h3 class="mt-1 min-h-10 text-sm font-extrabold">${item.name}</h3>
           <p class="mt-2 text-sm font-extrabold text-[#A77D1D]">${price}</p>
         </button>`;
+        }).join('');
+        return `<div><h2 class="mb-2 text-lg font-extrabold text-[#133824]">${category}</h2><div class="grid grid-cols-2 gap-2 sm:grid-cols-3">${cards}</div></div>`;
       }).join('');
+    }
+
+    function selectMenuCategory(category) {
+      activeCategory = category;
+      renderMenu();
+    }
+
+    function setMenuSearch(value) {
+      menuSearch = value;
+      renderMenu();
+    }
+
+    function renderAddons() {
+      const addons = Array.isArray(selectedItem.addons) ? selectedItem.addons : [];
+      const list = document.getElementById('addon-list');
+      list.innerHTML = addons.length
+        ? `<p class="text-xs font-extrabold">Add-ons <span class="font-normal text-stone-500">(Optional)</span></p>${addons.map((addon, index) => `
+          <label class="flex cursor-pointer items-center justify-between rounded-xl border border-stone-200 px-3 py-2 text-sm">
+            <span class="flex items-center gap-2"><input type="checkbox" onchange="toggleAddon(${index})" ${selectedAddons.has(index) ? 'checked' : ''} class="accent-[#C9A84D]"><span>${addon.name}</span></span>
+            <span class="font-bold text-[#A77D1D]">+₱${addon.price}</span>
+          </label>`).join('')}`
+        : '';
+    }
+
+    function toggleAddon(index) {
+      if (selectedAddons.has(index)) selectedAddons.delete(index);
+      else selectedAddons.add(index);
+      updateSelectedItemPrice();
+    }
+
+    function updateSelectedItemPrice() {
+      const basePrice = Number(selectedItem.variants[selectedVariant].price);
+      const addonPrice = Array.from(selectedAddons).reduce((sum, index) => sum + Number(selectedItem.addons[index].price), 0);
+      document.getElementById('add-item-button').textContent = `Add to Order • ₱${(basePrice + addonPrice).toFixed(2)}`;
     }
 
     function openItemModal(itemId) {
       selectedItem = menuItems.find((item) => item.id === itemId);
       if (!selectedItem) return;
       selectedVariant = 0;
+      selectedAddons = new Set();
       document.getElementById('item-category').textContent = selectedItem.category;
       document.getElementById('item-name').textContent = selectedItem.name;
       document.getElementById('variant-list').innerHTML = selectedItem.variants.map((variant, index) =>
@@ -241,6 +306,8 @@
           <span>${variant.label}</span><span>₱${variant.price}</span>
         </button>`
       ).join('');
+      renderAddons();
+      updateSelectedItemPrice();
       const modal = document.getElementById('item-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
@@ -254,6 +321,7 @@
           ? 'flex w-full items-center justify-between rounded-xl border border-[#C9A84D] bg-[#FFF9E8] px-3 py-2.5 text-sm font-bold'
           : 'flex w-full items-center justify-between rounded-xl border border-stone-300 px-3 py-2.5 text-sm';
       });
+      updateSelectedItemPrice();
     }
 
     function closeItemModal() {
@@ -263,9 +331,13 @@
 
     function addSelectedItem() {
       const variant = selectedItem.variants[selectedVariant];
-      const existing = cart.find((item) => item.name === selectedItem.name && item.variantLabel === variant.label);
+      const addons = Array.from(selectedAddons).map((index) => selectedItem.addons[index]);
+      const addonKey = addons.map((addon) => addon.name).sort().join('|');
+      const existing = cart.find((item) => item.itemId === selectedItem.id && item.variantLabel === variant.label && item.addonKey === addonKey);
+      const basePrice = Number(variant.price);
+      const unitPrice = basePrice + addons.reduce((sum, addon) => sum + Number(addon.price), 0);
       if (existing) existing.qty += 1;
-      else cart.push({ name: selectedItem.name, category: selectedItem.category, variantLabel: variant.label, unitPrice: variant.price, qty: 1 });
+      else cart.push({ itemId: selectedItem.id, name: selectedItem.name, category: selectedItem.category, variantLabel: variant.label, basePrice, addons, addonKey, unitPrice, qty: 1 });
       closeItemModal();
       renderCart();
     }
@@ -279,7 +351,7 @@
       document.getElementById('cart-items').innerHTML = cart.length
         ? cart.map((item, index) => `
           <div class="flex items-center justify-between rounded-xl border border-stone-200 p-3">
-            <div><p class="text-sm font-bold">${item.name}</p><p class="text-xs text-stone-500">${item.variantLabel} • ₱${item.unitPrice}</p></div>
+            <div><p class="text-sm font-bold">${item.name}</p><p class="text-xs text-stone-500">${item.variantLabel} • ₱${item.unitPrice} each</p>${item.addons && item.addons.length ? `<p class="text-xs text-stone-500">Add-ons: ${item.addons.map((addon) => `${addon.name} (+₱${addon.price})`).join(', ')}</p>` : ''}</div>
             <div class="flex items-center gap-2">
               <button type="button" onclick="changeQty(${index},-1)" class="h-8 w-8 rounded-lg bg-stone-100">−</button>
               <span class="text-sm font-bold">${item.qty}</span>
@@ -330,21 +402,9 @@
         return;
       }
       const name = document.getElementById('customer-name').value.trim();
-      const contact = document.getElementById('customer-contact').value.trim();
-      const address = document.getElementById('customer-address').value.trim();
       if (!name) {
         showToast('Please enter your name');
         document.getElementById('customer-name').focus();
-        return;
-      }
-      if ((orderType === 'Pick-Up' || orderType === 'Delivery') && !contact) {
-        showToast('Please enter your contact number');
-        document.getElementById('customer-contact').focus();
-        return;
-      }
-      if (orderType === 'Delivery' && !address) {
-        showToast('Please enter your delivery address');
-        document.getElementById('customer-address').focus();
         return;
       }
       if (!cart.length) return;
@@ -356,14 +416,15 @@
         await db.collection('orders').add({
           orderCode,
           customerName: name,
-          customerContact: (orderType === 'Pick-Up' || orderType === 'Delivery') ? contact : '',
-          customerAddress: orderType === 'Delivery' ? address : '',
+          customerContact: '',
+          customerAddress: '',
           fulfillment: orderType,
           orderType,
           items: JSON.parse(JSON.stringify(cart)),
           subtotal,
           deliveryFee: 0,
           total: subtotal,
+          paymentMethod: document.getElementById('payment-method').value,
           status: 'pending',
           source: 'customer',
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -371,12 +432,9 @@
         cart = [];
         renderCart();
         document.getElementById('customer-name').value = '';
-        document.getElementById('customer-contact').value = '';
-        document.getElementById('customer-address').value = '';
+        document.getElementById('payment-method').value = '';
         document.getElementById('order-dinein').checked = true;
         document.getElementById('order-takeout').checked = false;
-        document.getElementById('order-pickup').checked = false;
-        document.getElementById('order-delivery').checked = false;
         setOrderType('Dine-In');
         toggleCart(false);
         document.getElementById('order-confirmation-code').textContent = orderCode;
