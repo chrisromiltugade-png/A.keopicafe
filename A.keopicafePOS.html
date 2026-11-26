@@ -645,33 +645,6 @@
           </div>
         </div>
 
-        <!-- Storewide Discount Toggle + Percent -->
-        <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700">
-          <label for="discount-toggle" class="flex items-center gap-2 min-w-0 text-xs font-bold text-espresso-900 dark:text-stone-200 cursor-pointer select-none">
-            <input
-              id="discount-toggle"
-              type="checkbox"
-              onchange="toggleStorewideDiscount()"
-              class="w-4 h-4 rounded accent-[#133824] cursor-pointer shrink-0"
-            />
-            <span class="break-words">🏷️ Discount (all items)</span>
-          </label>
-          <div class="flex items-center gap-1 shrink-0">
-            <input
-              id="discount-percent-input"
-              type="number"
-              min="0"
-              max="100"
-              step="1"
-              value="20"
-              disabled
-              oninput="handleDiscountPercentInput()"
-              class="w-14 px-2 py-1 rounded-lg bg-cream-100 dark:bg-stone-900 border border-cream-300 dark:border-stone-700 text-xs font-extrabold text-right disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-forest-700 dark:focus:ring-amber-400"
-            />
-            <span class="text-[11px] font-extrabold text-forest-800 dark:text-amber-300">% OFF</span>
-          </div>
-        </div>
-
         <!-- Optional Customer Name (unchecked = no name needed, go straight to payment) -->
         <div class="rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700">
           <label for="customer-name-toggle" class="flex items-center justify-between gap-2 px-3 py-1.5 cursor-pointer select-none">
@@ -711,7 +684,7 @@
             <span id="cart-subtotal">₱0.00</span>
           </div>
           <div id="cart-discount-row" class="hidden justify-between text-red-600 dark:text-red-400 text-xs font-semibold">
-            <span id="cart-discount-label">Discount (20%)</span>
+            <span id="cart-discount-label">Senior/PWD (20%)</span>
             <span id="cart-discount-amount">-₱0.00</span>
           </div>
           <div id="cart-delivery-row" class="hidden justify-between text-forest-700 dark:text-amber-300 text-xs font-semibold">
@@ -816,11 +789,12 @@
             <input
               id="modal-senior-pwd"
               type="checkbox"
+              onchange="handleSeniorPwdToggle()"
               class="mt-0.5 w-4 h-4 shrink-0 rounded accent-[#133824] cursor-pointer"
             />
             <span class="min-w-0 text-xs sm:text-sm font-bold text-espresso-900 dark:text-stone-100 leading-snug break-words">
               Senior / PWD
-              <span class="block text-[11px] font-semibold text-stone-500 dark:text-stone-400">Check only if the customer is a Senior Citizen or PWD. This is a note only — it does not change the total.</span>
+              <span class="block text-[11px] font-semibold text-stone-500 dark:text-stone-400">Check only if the customer is a Senior Citizen or PWD. 20% off will be applied to this item.</span>
             </span>
           </label>
         </div>
@@ -2800,8 +2774,7 @@
       ITEM_DISCOUNT_MIGRATION: 'akeopi_pos_item_discount_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
-      STORE_HOURS: 'akeopi_pos_store_hours_v1',
-      DISCOUNT: 'akeopi_pos_discount_v1'
+      STORE_HOURS: 'akeopi_pos_store_hours_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2813,6 +2786,10 @@
     // The old automatic Caramel Macchiato promo must be removed from saved
     // menus; Senior / PWD is now a kitchen-note checkbox only (no auto discount).
     const ITEM_DISCOUNT_MIGRATION_ID = 'senior-pwd-checkbox-2026-11';
+    // Senior citizens / PWDs get 20% off the item when the checkbox in the
+    // Kitchen / Barista Note area is ticked. There is no separate discount
+    // control in the current order anymore.
+    const SENIOR_PWD_DISCOUNT_PERCENT = 20;
 
     let menuItems = [];
     let transactions = [];
@@ -2822,9 +2799,6 @@
     let orderType = 'Dine-In';
     let deliveryFeeEnabled = false;
     let deliveryFeeAmount = 0;
-    // Storewide discount (applies to every menu item on the ticket)
-    let discountEnabled = false;
-    let discountPercent = 20;
     let selectedPaymentMethod = 'Cash';
     let pendingDeleteOrderIndex = null;
 
@@ -2875,8 +2849,6 @@
       initAppSplash();
       initTheme();
       loadPersistedData();
-      loadDiscountSetting();
-      applyDiscountControlUI();
       populateManageCategoryDropdown();
       renderCategoryTabs();
       renderMenuGrid();
@@ -2964,9 +2936,9 @@
           ...item,
           qty: Number(item.qty) || 1,
           unitPrice: Number(item.unitPrice) || 0,
-          // Drop item-level discounts left by the old Caramel promo so the
-          // current order is not discounted automatically anymore.
-          discountPercent: 0
+          // Re-apply the Senior / PWD 20% line discount for restored tickets;
+          // any old automatic promo discount is dropped.
+          discountPercent: item.seniorPwd ? SENIOR_PWD_DISCOUNT_PERCENT : 0
         }));
         orderType = ticket.orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In';
         setOrderType(orderType);
@@ -3174,7 +3146,6 @@
 
     function renderMenuGrid() {
       const grid = document.getElementById('menu-grid');
-      const discountPct = getActiveDiscountPercent();
       const filtered = menuItems.filter((item) => {
         const matchesCat = activeCategory === 'All' || item.category === activeCategory;
         const matchesSearch =
@@ -3190,9 +3161,7 @@
         activeCategory === 'All' ? 'All Menu Items' : activeCategory;
       const anyItemDiscount = filtered.some((item) => getItemDiscountPercent(item) > 0);
       document.getElementById('visible-items-count').textContent =
-        `${filtered.length} item${filtered.length === 1 ? '' : 's'}${
-          discountPct > 0 ? ` • ${discountPct}% OFF` : anyItemDiscount ? ' • item discounts' : ''
-        }`;
+        `${filtered.length} item${filtered.length === 1 ? '' : 's'}${anyItemDiscount ? ' • item discounts' : ''}`;
 
       if (filtered.length === 0) {
         grid.innerHTML = `
@@ -3206,7 +3175,7 @@
 
       grid.innerHTML = filtered.map((item) => {
         const isSoldOut = item.available === false;
-        const itemPct = getItemDiscountPercent(item) || discountPct;
+        const itemPct = getItemDiscountPercent(item);
         const prices = item.variants.map((v) => v.price);
         const minPrice = Math.min(...prices);
         const maxPrice = Math.max(...prices);
@@ -3383,7 +3352,7 @@
 
     function renderModalVariants() {
       const grid = document.getElementById('modal-variants-grid');
-      const itemPct = getItemDiscountPercent(currentModalItem) || getActiveDiscountPercent();
+      const itemPct = getItemDiscountPercent(currentModalItem) || getModalLineDiscountPercent();
       grid.innerHTML = currentModalItem.variants
         .map((variant, idx) => {
           const active = idx === selectedVariantIdx;
@@ -3569,7 +3538,7 @@
 
     function updateModalTotalPrice() {
       const rawTotal = calculateModalUnitTotal() * modalQuantity;
-      const pct = getItemDiscountPercent(currentModalItem) || getActiveDiscountPercent();
+      const pct = getItemDiscountPercent(currentModalItem) || getModalLineDiscountPercent();
       const total = pct > 0
         ? Math.round(rawTotal * (100 - pct)) / 100
         : rawTotal;
@@ -3584,6 +3553,7 @@
       const note = document.getElementById('modal-item-note').value.trim();
       const unitPrice = calculateModalUnitTotal();
       const seniorPwd = isSeniorPwdChecked();
+      const lineDiscountPercent = seniorPwd ? SENIOR_PWD_DISCOUNT_PERCENT : 0;
 
       const addonNames = chosenAddons.map((a) => a.name).sort().join('|');
       const flavorStr = selectedFlavors.join(', ');
@@ -3615,7 +3585,7 @@
               addons: chosenAddons,
               note,
               unitPrice,
-              discountPercent: 0,
+              discountPercent: lineDiscountPercent,
               seniorPwd,
               qty: qtyToSave
             };
@@ -3638,7 +3608,7 @@
             addons: chosenAddons,
             note,
             unitPrice,
-            discountPercent: 0,
+            discountPercent: lineDiscountPercent,
             seniorPwd,
             qty: qtyToSave
           });
@@ -3702,15 +3672,8 @@
       return deliveryFeeEnabled ? Math.max(0, deliveryFeeAmount) : 0;
     }
 
-    // ---------- Discounts (storewide toggle + per-item discounts) ----------
-    function getActiveDiscountPercent() {
-      if (!discountEnabled) return 0;
-      const pct = Number(discountPercent);
-      if (!isFinite(pct) || pct <= 0) return 0;
-      return Math.min(100, pct);
-    }
-
-    // Menu items may carry their own discountPercent (e.g. promo item).
+    // ---------- Senior / PWD discount (per order line) ----------
+    // Menu items may still carry their own discountPercent for future promos.
     function getItemDiscountPercent(item) {
       if (!item) return 0;
       const pct = Number(item.discountPercent);
@@ -3723,16 +3686,28 @@
       return Boolean(checkbox && checkbox.checked);
     }
 
-    // Item discount wins; otherwise the storewide discount applies.
+    // 20% off the item while the modal's Senior / PWD checkbox is ticked.
+    function getModalLineDiscountPercent() {
+      return isSeniorPwdChecked() ? SENIOR_PWD_DISCOUNT_PERCENT : 0;
+    }
+
+    function handleSeniorPwdToggle() {
+      if (!currentModalItem) return;
+      renderModalVariants();
+      updateModalTotalPrice();
+    }
+
+    // The line's own discount wins; otherwise only a saved Senior / PWD
+    // marker gets the 20% off.
     function getCartLineDiscountPercent(cartItem) {
-      if (!cartItem) return getActiveDiscountPercent();
+      if (!cartItem) return 0;
       const own = Number(cartItem.discountPercent);
       if (isFinite(own) && own > 0) return Math.min(100, own);
+      if (cartItem.seniorPwd) return SENIOR_PWD_DISCOUNT_PERCENT;
       const menuItem = cartItem.itemId
         ? menuItems.find((entry) => entry.id === cartItem.itemId)
         : null;
-      const itemPct = getItemDiscountPercent(menuItem);
-      return itemPct > 0 ? itemPct : getActiveDiscountPercent();
+      return getItemDiscountPercent(menuItem);
     }
 
     function getCartDiscountAmount() {
@@ -3746,79 +3721,21 @@
     }
 
     function getCartDiscountSummaryLabel() {
-      const pct = getActiveDiscountPercent();
-      const hasItemLevel = cart.some((item) => {
-        const linePct = getCartLineDiscountPercent(item);
-        return linePct > 0 && linePct !== pct;
-      });
-      if (hasItemLevel) return 'Discounts';
-      if (pct > 0) return `Discount (${pct}%)`;
-      return 'Discount';
+      if (cart.some((item) => item && item.seniorPwd)) {
+        return `Senior/PWD (${SENIOR_PWD_DISCOUNT_PERCENT}%)`;
+      }
+      const hasItemLevel = cart.some((item) => getCartLineDiscountPercent(item) > 0);
+      return hasItemLevel ? 'Discounts' : 'Discount';
     }
 
     function getDiscountedPrice(price, pctOverride) {
-      const pct = typeof pctOverride === 'number' ? pctOverride : getActiveDiscountPercent();
+      const pct = typeof pctOverride === 'number' ? pctOverride : 0;
       if (!pct) return price;
       return Math.round(price * (100 - pct)) / 100;
     }
 
     function formatMenuPrice(price) {
       return Number.isInteger(price) ? String(price) : price.toFixed(2);
-    }
-
-    function applyDiscountControlUI() {
-      const checkbox = document.getElementById('discount-toggle');
-      const input = document.getElementById('discount-percent-input');
-      if (checkbox) checkbox.checked = discountEnabled;
-      if (input) {
-        input.value = discountPercent;
-        input.disabled = !discountEnabled;
-      }
-    }
-
-    function saveDiscountSetting() {
-      try {
-        localStorage.setItem(
-          STORAGE_KEYS.DISCOUNT,
-          JSON.stringify({ enabled: discountEnabled, percent: discountPercent })
-        );
-      } catch (e) {
-        console.error('Failed to save discount setting:', e);
-      }
-    }
-
-    function loadDiscountSetting() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEYS.DISCOUNT);
-        if (!raw) return;
-        const saved = JSON.parse(raw);
-        discountEnabled = Boolean(saved && saved.enabled);
-        const pct = Number(saved && saved.percent);
-        if (isFinite(pct) && pct > 0 && pct <= 100) discountPercent = pct;
-      } catch (e) {
-        console.error('Failed to load discount setting:', e);
-      }
-    }
-
-    function toggleStorewideDiscount() {
-      const checkbox = document.getElementById('discount-toggle');
-      discountEnabled = Boolean(checkbox && checkbox.checked);
-      if (discountEnabled && !(discountPercent > 0)) discountPercent = 20;
-      applyDiscountControlUI();
-      saveDiscountSetting();
-      renderMenuGrid();
-      renderCart();
-    }
-
-    function handleDiscountPercentInput() {
-      const input = document.getElementById('discount-percent-input');
-      let pct = parseFloat(input.value);
-      if (isNaN(pct) || pct < 0) pct = 0;
-      if (pct > 100) pct = 100;
-      discountPercent = pct;
-      saveDiscountSetting();
-      renderCart();
-      renderMenuGrid();
     }
 
     function getCartSubtotal() {
@@ -4078,7 +3995,6 @@
       toggleMobileCart(false);
 
       const subtotal = getCartSubtotal();
-      const discountPct = getActiveDiscountPercent();
       const discountAmount = getCartDiscountAmount();
       const delivFee = getActiveDeliveryFee();
       const total = subtotal - discountAmount + delivFee;
@@ -4086,8 +4002,8 @@
       document.getElementById('checkout-total-display').textContent = `₱${total.toFixed(2)}`;
       const hasSeniorPwd = cart.some((item) => item && item.seniorPwd);
       const metaParts = [orderType];
-      if (hasSeniorPwd) metaParts.push('Senior/PWD');
-      if (discountAmount > 0) metaParts.push(discountPct > 0 ? `${discountPct}% OFF` : 'Item discount');
+      if (hasSeniorPwd) metaParts.push(`Senior/PWD ${SENIOR_PWD_DISCOUNT_PERCENT}% OFF`);
+      if (discountAmount > 0 && !hasSeniorPwd) metaParts.push('Item discount');
       if (delivFee > 0) metaParts.push(`Delivery ₱${delivFee.toFixed(0)}`);
       if (customerName) metaParts.push(customerName);
       document.getElementById('checkout-order-meta').textContent = metaParts.join(' • ');
@@ -4156,7 +4072,6 @@
 
     function finalizeOrder() {
       const subtotal = getCartSubtotal();
-      const discountPct = getActiveDiscountPercent();
       const discountAmount = getCartDiscountAmount();
       const delivFee = getActiveDeliveryFee();
       const total = subtotal - discountAmount + delivFee;
@@ -4198,12 +4113,9 @@
         orderSource: 'POS',
         items: JSON.parse(JSON.stringify(cart)),
         subtotal,
-        discountPercent: discountPct,
+        discountPercent: 0,
         seniorPwd: cart.some((item) => item && item.seniorPwd),
-        itemDiscount: cart.some((item) => {
-          const linePct = getCartLineDiscountPercent(item);
-          return linePct > 0 && linePct !== discountPct;
-        }),
+        itemDiscount: cart.some((item) => getCartLineDiscountPercent(item) > 0),
         discountAmount,
         deliveryFee: delivFee,
         total,
@@ -4257,7 +4169,7 @@
             subLines.push(`  Note: ${item.note}`);
           }
           if (item.seniorPwd) {
-            subLines.push('  Senior/PWD');
+            subLines.push(`  Senior/PWD (${SENIOR_PWD_DISCOUNT_PERCENT}% OFF)`);
           }
 
           return `
@@ -4286,11 +4198,13 @@
           </div>`);
       }
       if (orderDiscountAmount > 0) {
-        const discountLabel = order.itemDiscount
-          ? 'Discounts:'
-          : orderDiscountPercent > 0
-            ? `Discount (${orderDiscountPercent}%):`
-            : 'Item Discount:';
+        const discountLabel = order.seniorPwd
+          ? `Senior/PWD (${SENIOR_PWD_DISCOUNT_PERCENT}%):`
+          : order.itemDiscount
+            ? 'Discounts:'
+            : orderDiscountPercent > 0
+              ? `Discount (${orderDiscountPercent}%):`
+              : 'Item Discount:';
         breakdownLines.push(`
           <div class="flex justify-between text-[11px]">
             <span>${discountLabel}</span>
@@ -4457,7 +4371,7 @@
               : '';
           const discountBadge =
             tx.discountAmount && tx.discountAmount > 0
-              ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">${tx.itemDiscount ? 'Discounts' : tx.discountPercent > 0 ? `${tx.discountPercent}% OFF` : 'Item discount'} (−₱${tx.discountAmount.toFixed(0)})</span>`
+              ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">${tx.seniorPwd ? `${SENIOR_PWD_DISCOUNT_PERCENT}% OFF` : tx.itemDiscount ? 'Discounts' : tx.discountPercent > 0 ? `${tx.discountPercent}% OFF` : 'Item discount'} (−₱${tx.discountAmount.toFixed(0)})</span>`
               : '';
           const isConfirmingDelete = pendingDeleteOrderIndex === idx;
 
