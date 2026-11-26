@@ -2683,7 +2683,8 @@
       ORDER_COUNTER: 'akeopi_pos_order_counter_v1',
       THEME: 'akeopi_pos_theme_v1',
       MENU_MIGRATION: 'akeopi_pos_menu_migration_v1',
-      TICKET: 'akeopi_pos_ticket_v1'
+      TICKET: 'akeopi_pos_ticket_v1',
+      INCOMING_DONE: 'akeopi_pos_incoming_done_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2709,6 +2710,7 @@
     let selectedAddonIndices = new Set();
     let modalQuantity = 1;
     let pendingCustomerOrders = [];
+    let handledIncomingOrders = [];
     let firebaseDb = null;
 
     const firebaseConfig = {
@@ -2789,6 +2791,8 @@
       }
 
       restoreActiveTicket();
+      restoreHandledIncomingOrders();
+      renderPendingCustomerOrders();
     }
 
     // Saves the unfinished ticket so a refresh (or an app update reload)
@@ -4478,18 +4482,92 @@
       }
     }
 
+    function restoreHandledIncomingOrders() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.INCOMING_DONE);
+        const list = raw ? JSON.parse(raw) : [];
+        handledIncomingOrders = Array.isArray(list)
+          ? list.filter((order) => order && typeof order.id === 'string')
+          : [];
+      } catch (e) {
+        console.error('Failed to restore handled incoming orders:', e);
+        handledIncomingOrders = [];
+      }
+    }
+
+    function saveHandledIncomingOrders() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.INCOMING_DONE, JSON.stringify(handledIncomingOrders));
+      } catch (e) {
+        console.error('Failed to save handled incoming orders:', e);
+      }
+    }
+
+    // Keep a crossed-out copy of an order after it is loaded into the POS so
+    // the cashier still sees that it was already taken instead of it vanishing.
+    function markIncomingOrderHandled(order) {
+      if (!order || !order.id) return;
+      if (handledIncomingOrders.some((entry) => entry.id === order.id)) return;
+      handledIncomingOrders.unshift({
+        id: order.id,
+        customerName: order.customerName || 'Customer',
+        orderCode: order.orderCode || '',
+        fulfillment: order.fulfillment || order.orderType || 'Pick-Up',
+        customerContact: order.customerContact || '',
+        customerAddress: order.customerAddress || '',
+        total: Number(order.total || 0),
+        items: (order.items || []).map((item) => ({
+          qty: Number(item.qty) || 1,
+          name: item.name || '',
+          variantLabel: item.variantLabel || ''
+        })),
+        createdAtMs: order.createdAt?.toMillis ? order.createdAt.toMillis() : Date.now(),
+        handledAt: Date.now()
+      });
+      saveHandledIncomingOrders();
+    }
+
+    function removeHandledIncomingOrder(orderId) {
+      handledIncomingOrders = handledIncomingOrders.filter((entry) => entry.id !== orderId);
+      saveHandledIncomingOrders();
+      renderPendingCustomerOrders();
+    }
+
+    function clearFinishedIncomingOrders() {
+      if (handledIncomingOrders.length === 0) {
+        showToast('Wala pang tapos na order');
+        return;
+      }
+      handledIncomingOrders = [];
+      saveHandledIncomingOrders();
+      renderPendingCustomerOrders();
+      showToast('Na-clear ang tapos na orders');
+    }
+
     function renderPendingCustomerOrders() {
       const badge = document.getElementById('pending-orders-badge');
       badge.textContent = pendingCustomerOrders.length;
       badge.classList.toggle('hidden', pendingCustomerOrders.length === 0);
 
+      const clearBtn = document.getElementById('clear-incoming-btn');
+      if (clearBtn) {
+        clearBtn.textContent = handledIncomingOrders.length
+          ? `Clear finished (${handledIncomingOrders.length})`
+          : 'Clear finished';
+        clearBtn.classList.toggle('opacity-40', handledIncomingOrders.length === 0);
+      }
+
+      const pendingIds = new Set(pendingCustomerOrders.map((order) => order.id));
+      const finishedOrders = handledIncomingOrders.filter((order) => !pendingIds.has(order.id));
+      const timeOf = (ms) => (ms ? new Date(ms).toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : 'Now');
+
       const list = document.getElementById('pending-orders-list');
-      if (pendingCustomerOrders.length === 0) {
+      if (pendingCustomerOrders.length === 0 && finishedOrders.length === 0) {
         list.innerHTML = '<div class="py-8 text-center text-xs text-stone-400">No incoming customer orders</div>';
         return;
       }
 
-      list.innerHTML = pendingCustomerOrders.map((order) => {
+      const pendingHtml = pendingCustomerOrders.map((order) => {
         const created = order.createdAt?.toDate ? order.createdAt.toDate().toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' }) : 'Now';
         const items = (order.items || []).map((item) => `${item.qty}× ${item.name} (${item.variantLabel})`).join(', ');
         const fulfillment = order.fulfillment || order.orderType || 'Pick-Up';
@@ -4507,6 +4585,32 @@
           </button>
         `;
       }).join('');
+
+      const finishedHtml = finishedOrders.length
+        ? `<p class="pt-1 text-[10px] font-bold uppercase tracking-wide text-stone-400">Tapos na / Taken (${finishedOrders.length})</p>` +
+          finishedOrders.map((order) => {
+            const items = (order.items || []).map((item) => `${item.qty}× ${item.name} (${item.variantLabel})`).join(', ');
+            const contact = order.customerContact ? ` • ${order.customerContact}` : '';
+            const address = order.customerAddress ? ` • ${order.customerAddress}` : '';
+            return `
+              <div class="w-full rounded-xl border border-cream-200 bg-cream-50/70 p-3 opacity-70 dark:border-stone-700 dark:bg-stone-800/60">
+                <div class="flex items-start justify-between gap-2">
+                  <span class="min-w-0 break-words font-extrabold text-sm text-stone-500 line-through dark:text-stone-400">${order.customerName || 'Customer'}${order.orderCode ? ` • #${order.orderCode}` : ''}</span>
+                  <button type="button" onclick="removeHandledIncomingOrder('${order.id}')" aria-label="Remove finished order"
+                    class="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold leading-none text-stone-500 hover:bg-stone-200 dark:hover:bg-stone-700">✕</button>
+                </div>
+                <p class="mt-1 text-xs text-stone-500 line-through break-words dark:text-stone-400">${order.fulfillment}${contact}${address} • ₱${Number(order.total || 0).toFixed(2)}</p>
+                <p class="mt-1 text-[11px] text-stone-500 line-through break-words dark:text-stone-400">${items}</p>
+                <div class="mt-1 flex items-center justify-between gap-2">
+                  <span class="rounded-full bg-forest-800/10 px-2 py-0.5 text-[10px] font-extrabold text-forest-800 dark:bg-amber-400/15 dark:text-amber-300">Taken ✓</span>
+                  <span class="shrink-0 whitespace-nowrap text-[10px] font-bold text-stone-400">${timeOf(order.createdAtMs)}</span>
+                </div>
+              </div>
+            `;
+          }).join('')
+        : '';
+
+      list.innerHTML = pendingHtml + finishedHtml;
     }
 
     async function findCustomerOrderByCode() {
@@ -4531,6 +4635,10 @@
     async function loadCustomerOrder(orderId) {
       const order = pendingCustomerOrders.find((entry) => entry.id === orderId);
       if (!order || !firebaseDb) return;
+
+      // Keep the order visible in the incoming list, crossed out as taken.
+      markIncomingOrderHandled(order);
+      renderPendingCustomerOrders();
 
       cart = (order.items || []).map((item) => ({
         cartId: `customer-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -4594,14 +4702,18 @@
     }
   </script>
   <div id="pending-orders-panel" class="fixed right-3 top-[64px] z-[60] hidden w-[calc(100vw-24px)] max-w-md max-h-[70vh] flex-col rounded-2xl border border-cream-300 bg-white shadow-2xl dark:border-stone-700 dark:bg-stone-900">
-    <div class="flex items-center justify-between border-b border-cream-200 px-4 py-3 dark:border-stone-800">
-      <div>
+    <div class="flex items-center justify-between gap-2 border-b border-cream-200 px-4 py-3 dark:border-stone-800">
+      <div class="min-w-0">
         <h3 class="font-extrabold text-sm text-forest-800 dark:text-amber-200">Customer Orders</h3>
-        <p class="text-[11px] text-stone-500">Click an order to load it into the POS</p>
+        <p class="text-[11px] text-stone-500 break-words">Click an order to load it into the POS</p>
       </div>
-      <button type="button" onclick="togglePendingOrdersPanel(false)" class="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Close">
-        ×
-      </button>
+      <div class="flex shrink-0 items-center gap-1.5">
+        <button type="button" id="clear-incoming-btn" onclick="clearFinishedIncomingOrders()"
+          class="whitespace-nowrap rounded-lg bg-cream-100 px-2.5 py-1.5 text-[11px] font-bold text-forest-800 hover:bg-cream-200 dark:bg-stone-800 dark:text-amber-300 dark:hover:bg-stone-700">Clear finished</button>
+        <button type="button" onclick="togglePendingOrdersPanel(false)" class="rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Close">
+          ×
+        </button>
+      </div>
     </div>
     <form class="border-b border-cream-200 p-3 dark:border-stone-800" onsubmit="event.preventDefault(); findCustomerOrderByCode()">
       <label for="customer-order-code-input" class="mb-1 block text-xs font-bold">Load order using customer code</label>
