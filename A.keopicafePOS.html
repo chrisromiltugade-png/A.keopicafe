@@ -4745,7 +4745,7 @@
       if (handledIncomingOrders.some((entry) => entry.id === order.id)) return;
       handledIncomingOrders.unshift({
         id: order.id,
-        customerName: order.customerName || 'Customer',
+        customerName: order.customerName || 'Walk-in Customer',
         orderCode: order.orderCode || '',
         fulfillment: order.fulfillment || order.orderType || 'Pick-Up',
         customerContact: order.customerContact || '',
@@ -4812,7 +4812,7 @@
           <button type="button" onclick="loadCustomerOrder('${order.id}')"
             class="w-full text-left p-3 rounded-xl border border-cream-200 bg-cream-50 hover:border-forest-700 hover:bg-white dark:border-stone-700 dark:bg-stone-800 dark:hover:border-amber-400 transition">
             <div class="flex items-center justify-between gap-2">
-              <span class="min-w-0 truncate font-extrabold text-sm text-forest-800 dark:text-amber-200">${order.customerName || 'Customer'}${order.orderCode ? ` • #${order.orderCode}` : ''}</span>
+              <span class="min-w-0 truncate font-extrabold text-sm text-forest-800 dark:text-amber-200">${order.customerName || 'Walk-in Customer'}${order.orderCode ? ` • #${order.orderCode}` : ''}</span>
               <span class="shrink-0 whitespace-nowrap text-[10px] font-bold text-stone-500">${created}</span>
             </div>
             <p class="mt-1 text-xs text-stone-600 dark:text-stone-300 break-words">${fulfillment}${contact}${address} • ₱${Number(order.total || 0).toFixed(2)}</p>
@@ -4830,7 +4830,7 @@
             return `
               <div class="w-full rounded-xl border border-cream-200 bg-cream-50/70 p-3 opacity-70 dark:border-stone-700 dark:bg-stone-800/60">
                 <div class="flex items-start justify-between gap-2">
-                  <span class="min-w-0 break-words font-extrabold text-sm text-stone-500 line-through dark:text-stone-400">${order.customerName || 'Customer'}${order.orderCode ? ` • #${order.orderCode}` : ''}</span>
+                  <span class="min-w-0 break-words font-extrabold text-sm text-stone-500 line-through dark:text-stone-400">${order.customerName || 'Walk-in Customer'}${order.orderCode ? ` • #${order.orderCode}` : ''}</span>
                   <button type="button" onclick="removeHandledIncomingOrder('${order.id}')" aria-label="Remove finished order"
                     class="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold leading-none text-stone-500 hover:bg-stone-200 dark:hover:bg-stone-700">✕</button>
                 </div>
@@ -4907,7 +4907,7 @@
       renderCart();
       togglePendingOrdersPanel(false);
       toggleMobileCart(true);
-      showToast(`Loaded ${order.customerName || 'customer'} order`);
+      showToast(`Loaded ${order.customerName || 'Walk-in Customer'} order`);
 
       try {
         await firebaseDb.collection('orders').doc(orderId).update({
