@@ -8,6 +8,11 @@
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <style>
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { overflow-wrap: break-word; }
+    #menu-list, #cart-items, #variant-list, #addon-list, #toast { overflow-wrap: anywhere; }
+  </style>
 </head>
 <body class="bg-[#FFFDF8] text-[#2F2A21]">
   <main class="mx-auto min-h-screen max-w-3xl p-3 pb-32 sm:p-5">
@@ -16,7 +21,7 @@
         <img src="./A-keopicafe-logo.jpg" alt="A.Keopi Cafe logo" class="h-full w-full object-contain">
       </div>
       <div>
-        <h1 class="font-serif text-xl font-extrabold">A.Keopi Cafe</h1>
+        <h1 class="font-serif text-xl font-extrabold break-words">A.Keopi Cafe</h1>
         <p class="text-xs font-semibold text-[#D8B55A]">Customer Ordering</p>
       </div>
     </header>
@@ -95,12 +100,13 @@
 
   <div id="item-modal" class="fixed inset-0 z-[60] hidden items-end bg-black/50 sm:items-center sm:justify-center sm:p-4">
     <div class="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-4 sm:rounded-3xl">
-      <div class="mb-3 flex items-start justify-between">
-        <div>
-          <p id="item-category" class="text-[10px] font-bold uppercase text-[#1C4B32]"></p>
-          <h2 id="item-name" class="font-extrabold"></h2>
+      <div class="mb-3 flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p id="item-category" class="text-[10px] font-bold uppercase text-[#1C4B32] break-words"></p>
+          <h2 id="item-name" class="font-extrabold break-words"></h2>
+          <p id="item-description" class="mt-1 text-xs leading-snug text-stone-500 break-words"></p>
         </div>
-        <button type="button" onclick="closeItemModal()" class="rounded-lg px-3 py-2">×</button>
+        <button type="button" onclick="closeItemModal()" class="shrink-0 rounded-lg px-3 py-2">×</button>
       </div>
       <div id="variant-list" class="space-y-2"></div>
       <div id="addon-list" class="mt-4 space-y-2"></div>
@@ -118,7 +124,7 @@
     </section>
   </div>
 
-  <div id="toast" class="fixed left-1/2 top-4 z-[70] hidden -translate-x-1/2 rounded-xl border border-[#C9A84D] bg-[#7A5A12] px-4 py-2.5 text-sm font-bold text-white shadow-lg"></div>
+  <div id="toast" class="fixed left-1/2 top-4 z-[70] hidden max-w-[90vw] -translate-x-1/2 rounded-xl border border-[#C9A84D] bg-[#7A5A12] px-4 py-2.5 text-center text-sm font-bold text-white shadow-lg break-words"></div>
 
   <script>
     const firebaseConfig = {
@@ -134,10 +140,78 @@
     const db = firebase.firestore();
     firebase.auth().signInAnonymously().catch((error) => console.error(error));
 
+    const PREMIUM_COOKIES = [
+      {
+        id: 'ck-redvelvet',
+        category: 'Premium Cookies',
+        name: 'Red Velvet',
+        description: 'Classic red velvet cookie with a rich cocoa flavor, creamy white chocolate, and a soft, chewy center.',
+        variants: [{ label: 'Medium (70g)', price: 75 }, { label: 'Large (100g)', price: 115 }],
+        addons: [],
+        available: true
+      },
+      {
+        id: 'ck-doublechocolate',
+        category: 'Premium Cookies',
+        name: 'Double Chocolate',
+        description: 'Rich, fudgy chocolate cookie loaded with dark chocolate chips and indulgent milk chocolate chunks.',
+        variants: [{ label: 'Medium (70g)', price: 75 }, { label: 'Large (100g)', price: 115 }],
+        addons: [],
+        available: true
+      },
+      {
+        id: 'ck-biscoffchunk',
+        category: 'Premium Cookies',
+        name: 'Biscoff Chunk Overload',
+        description: 'Crunchy Biscoff cookie pieces loaded with chocolate chunks, rich Biscoff spread, and extra Biscoff on top.',
+        variants: [{ label: 'Medium (70g)', price: 75 }, { label: 'Large (100g)', price: 115 }],
+        addons: [],
+        available: true
+      },
+      {
+        id: 'ck-chocolatechipog',
+        category: 'Premium Cookies',
+        name: 'Chocolate Chip OG',
+        description: 'Loaded with premium Callebaut chocolate chips, perfectly crunchy on the outside with a soft, chewy center.',
+        variants: [{ label: 'Medium (70g)', price: 75 }, { label: 'Large (100g)', price: 115 }],
+        addons: [],
+        available: true
+      },
+      {
+        id: 'ck-campfiresmores',
+        category: 'Premium Cookies',
+        name: 'Campfire Smores',
+        description: 'Loaded with crunchy grahams, gooey marshmallows, and rich chocolate for the perfect campfire-inspired bite.',
+        variants: [{ label: 'Medium (70g)', price: 75 }, { label: 'Large (100g)', price: 115 }],
+        addons: [],
+        available: true
+      },
+      {
+        id: 'ck-dubai',
+        category: 'Premium Cookies',
+        name: 'Dubai',
+        description: 'Dubai-style cookie loaded with pistachio cream and crispy kataifi, finished with a rich chocolate coating.',
+        variants: [{ label: 'Large (100g)', price: 115 }],
+        addons: [],
+        available: true
+      }
+    ];
+
+    function ensurePremiumCookies(items) {
+      const list = Array.isArray(items) ? items.slice() : [];
+      const missing = PREMIUM_COOKIES.filter((cookie) =>
+        !list.some((item) =>
+          item.id === cookie.id || (item.name || '').trim().toLowerCase() === cookie.name.toLowerCase()
+        )
+      );
+      return missing.length ? [...list, ...missing] : list;
+    }
+
     let menuItems = [];
     try {
       menuItems = JSON.parse(localStorage.getItem('akeopi_pos_menu_v1') || '[]');
     } catch (e) {}
+    if (!Array.isArray(menuItems)) menuItems = [];
 
     if (!menuItems.length) {
       const coffeeAddons = [{ name: 'Espresso Shot', price: 35 }, { name: 'Flavored Syrup', price: 15 }, { name: 'Whipcream', price: 25 }];
@@ -153,6 +227,8 @@
         { id: 'rice-2', name: 'Pork Sisig', category: 'Rice Meals', variants: [{label:'Regular',price:159}], addons: mealAddons, available:true }
       ];
     }
+
+    menuItems = ensurePremiumCookies(menuItems);
 
     let cart = [];
     let orderType = 'Dine-In';
@@ -194,7 +270,7 @@
         const remoteItems = snapshot.data().items;
         if (!Array.isArray(remoteItems)) return;
 
-        menuItems = remoteItems;
+        menuItems = ensurePremiumCookies(remoteItems);
         localStorage.setItem('akeopi_pos_menu_v1', JSON.stringify(menuItems));
 
         cart = cart.map((cartItem) => {
@@ -250,9 +326,10 @@
           ? `₱${Math.min(...prices)}`
           : `₱${Math.min(...prices)}–₱${Math.max(...prices)}`;
         return `<button type="button" onclick="openItemModal('${item.id}')"
-          class="rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-[#C9A84D]">
-          <h3 class="mt-1 min-h-10 text-sm font-extrabold">${item.name}</h3>
-          <p class="mt-2 text-sm font-extrabold text-[#A77D1D]">${price}</p>
+          class="flex min-w-0 flex-col rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-[#C9A84D]">
+          <h3 class="mt-1 min-h-10 text-sm font-extrabold break-words">${item.name}</h3>
+          ${item.description ? `<p class="mt-1 line-clamp-3 text-[11px] leading-snug text-stone-500 break-words">${item.description}</p>` : ''}
+          <p class="mt-2 whitespace-nowrap text-sm font-extrabold text-[#A77D1D]">${price}</p>
         </button>`;
         }).join('');
         return `<div><h2 class="mb-2 text-lg font-extrabold text-[#133824]">${category}</h2><div class="grid grid-cols-2 gap-2 sm:grid-cols-3">${cards}</div></div>`;
@@ -300,10 +377,11 @@
       selectedAddons = new Set();
       document.getElementById('item-category').textContent = selectedItem.category;
       document.getElementById('item-name').textContent = selectedItem.name;
+      document.getElementById('item-description').textContent = selectedItem.description || '';
       document.getElementById('variant-list').innerHTML = selectedItem.variants.map((variant, index) =>
         `<button type="button" onclick="selectVariant(${index})" id="variant-${index}"
-          class="flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? 'border-[#C9A84D] bg-[#FFF9E8] font-bold' : 'border-stone-300'}">
-          <span>${variant.label}</span><span>₱${variant.price}</span>
+          class="flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? 'border-[#C9A84D] bg-[#FFF9E8] font-bold' : 'border-stone-300'}">
+          <span class="min-w-0 break-words">${variant.label}</span><span class="shrink-0 whitespace-nowrap">₱${variant.price}</span>
         </button>`
       ).join('');
       renderAddons();
@@ -318,8 +396,8 @@
       selectedItem.variants.forEach((_, i) => {
         const button = document.getElementById(`variant-${i}`);
         button.className = i === index
-          ? 'flex w-full items-center justify-between rounded-xl border border-[#C9A84D] bg-[#FFF9E8] px-3 py-2.5 text-sm font-bold'
-          : 'flex w-full items-center justify-between rounded-xl border border-stone-300 px-3 py-2.5 text-sm';
+          ? 'flex w-full items-center justify-between gap-2 rounded-xl border border-[#C9A84D] bg-[#FFF9E8] px-3 py-2.5 text-sm font-bold'
+          : 'flex w-full items-center justify-between gap-2 rounded-xl border border-stone-300 px-3 py-2.5 text-sm';
       });
       updateSelectedItemPrice();
     }
@@ -350,9 +428,9 @@
       document.getElementById('place-order').disabled = cart.length === 0 || !isStoreOpen();
       document.getElementById('cart-items').innerHTML = cart.length
         ? cart.map((item, index) => `
-          <div class="flex items-center justify-between rounded-xl border border-stone-200 p-3">
-            <div><p class="text-sm font-bold">${item.name}</p><p class="text-xs text-stone-500">${item.variantLabel} • ₱${item.unitPrice} each</p>${item.addons && item.addons.length ? `<p class="text-xs text-stone-500">Add-ons: ${item.addons.map((addon) => `${addon.name} (+₱${addon.price})`).join(', ')}</p>` : ''}</div>
-            <div class="flex items-center gap-2">
+          <div class="flex items-center justify-between gap-2 rounded-xl border border-stone-200 p-3">
+            <div class="min-w-0"><p class="text-sm font-bold break-words">${item.name}</p><p class="text-xs text-stone-500 break-words">${item.variantLabel} • ₱${item.unitPrice} each</p>${item.addons && item.addons.length ? `<p class="text-xs text-stone-500 break-words">Add-ons: ${item.addons.map((addon) => `${addon.name} (+₱${addon.price})`).join(', ')}</p>` : ''}</div>
+            <div class="flex shrink-0 items-center gap-2">
               <button type="button" onclick="changeQty(${index},-1)" class="h-8 w-8 rounded-lg bg-stone-100">−</button>
               <span class="text-sm font-bold">${item.qty}</span>
               <button type="button" onclick="changeQty(${index},1)" class="h-8 w-8 rounded-lg bg-stone-100">+</button>
