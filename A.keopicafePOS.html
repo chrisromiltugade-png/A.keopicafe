@@ -1364,6 +1364,7 @@
           { label: 'Iced 22oz', price: 115 }
         ],
         addons: COFFEE_DRINK_ADDONS,
+        discountPercent: 20,
         available: true
       },
       {
@@ -2783,6 +2784,7 @@
       THEME: 'akeopi_pos_theme_v1',
       MENU_MIGRATION: 'akeopi_pos_menu_migration_v1',
       PRICE_MIGRATION: 'akeopi_pos_price_migration_v1',
+      ITEM_DISCOUNT_MIGRATION: 'akeopi_pos_item_discount_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
       STORE_HOURS: 'akeopi_pos_store_hours_v1',
@@ -2795,6 +2797,9 @@
     // Bump this ID when an existing default price must be corrected on
     // installs that already saved a menu (localStorage + Firestore).
     const PRICE_MIGRATION_ID = 'caramel-macchiato-iced22-115-2026-11';
+    // Item-level discounts are stored on the menu item (discountPercent).
+    // Bump this ID when a discount must be applied to menus already saved.
+    const ITEM_DISCOUNT_MIGRATION_ID = 'caramel-macchiato-20pct-2026-11';
 
     let menuItems = [];
     let transactions = [];
@@ -2895,6 +2900,7 @@
       }
 
       applyPriceMigrations();
+      applyItemDiscountMigrations();
       try {
         const savedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
         transactions = savedTx ? JSON.parse(savedTx) : [];
@@ -3010,6 +3016,24 @@
         localStorage.setItem(STORAGE_KEYS.PRICE_MIGRATION, PRICE_MIGRATION_ID);
       } catch (e) {
         console.error('Price migration failed:', e);
+      }
+    }
+
+    // Item discount corrections for menus already saved on devices. Runs once
+    // per ID, then re-syncs so the customer page shows the same sale price.
+    function applyItemDiscountMigrations() {
+      try {
+        if (localStorage.getItem(STORAGE_KEYS.ITEM_DISCOUNT_MIGRATION) === ITEM_DISCOUNT_MIGRATION_ID) return;
+        let changed = false;
+        const caramel = menuItems.find((item) => item.id === 'cc-caramelmacchiato');
+        if (caramel && Number(caramel.discountPercent) !== 20) {
+          caramel.discountPercent = 20;
+          changed = true;
+        }
+        if (changed) saveMenuToStorage();
+        localStorage.setItem(STORAGE_KEYS.ITEM_DISCOUNT_MIGRATION, ITEM_DISCOUNT_MIGRATION_ID);
+      } catch (e) {
+        console.error('Item discount migration failed:', e);
       }
     }
 
@@ -3147,8 +3171,11 @@
 
       document.getElementById('active-category-title').textContent =
         activeCategory === 'All' ? 'All Menu Items' : activeCategory;
+      const anyItemDiscount = filtered.some((item) => getItemDiscountPercent(item) > 0);
       document.getElementById('visible-items-count').textContent =
-        `${filtered.length} item${filtered.length === 1 ? '' : 's'}${discountPct > 0 ? ` • ${discountPct}% OFF` : ''}`;
+        `${filtered.length} item${filtered.length === 1 ? '' : 's'}${
+          discountPct > 0 ? ` • ${discountPct}% OFF` : anyItemDiscount ? ' • item discounts' : ''
+        }`;
 
       if (filtered.length === 0) {
         grid.innerHTML = `
@@ -3162,6 +3189,7 @@
 
       grid.innerHTML = filtered.map((item) => {
         const isSoldOut = item.available === false;
+        const itemPct = getItemDiscountPercent(item) || discountPct;
         const prices = item.variants.map((v) => v.price);
         const minPrice = Math.min(...prices);
         const maxPrice = Math.max(...prices);
@@ -3169,8 +3197,8 @@
           minPrice === maxPrice
             ? `₱${formatMenuPrice(minPrice)}`
             : `₱${formatMenuPrice(minPrice)} – ₱${formatMenuPrice(maxPrice)}`;
-        const saleMin = getDiscountedPrice(minPrice);
-        const saleMax = getDiscountedPrice(maxPrice);
+        const saleMin = getDiscountedPrice(minPrice, itemPct);
+        const saleMax = getDiscountedPrice(maxPrice, itemPct);
         const priceDisplay =
           minPrice === maxPrice
             ? `₱${formatMenuPrice(saleMin)}`
@@ -3179,8 +3207,8 @@
         const variantBadges = item.variants
           .map(
             (v) =>
-              `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cream-100 dark:bg-stone-800 text-espresso-800 dark:text-stone-300 border border-cream-200 dark:border-stone-700">${v.label}: <strong class="ml-1 text-forest-800 dark:text-amber-300">₱${formatMenuPrice(getDiscountedPrice(v.price))}</strong>${
-                discountPct > 0
+              `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cream-100 dark:bg-stone-800 text-espresso-800 dark:text-stone-300 border border-cream-200 dark:border-stone-700">${v.label}: <strong class="ml-1 text-forest-800 dark:text-amber-300">₱${formatMenuPrice(getDiscountedPrice(v.price, itemPct))}</strong>${
+                itemPct > 0
                   ? ` <span class="text-[10px] font-semibold text-stone-400 line-through">₱${formatMenuPrice(v.price)}</span>`
                   : ''
               }</span>`
@@ -3207,7 +3235,11 @@
                     ? '<span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">SOLD OUT</span>'
                     : `<div class="shrink-0 text-right">
                         <span class="block text-sm font-extrabold text-forest-800 dark:text-amber-300 whitespace-nowrap">${priceDisplay}</span>
-                        ${discountPct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through whitespace-nowrap">${origPriceDisplay}</span>` : ''}
+                        ${
+                          itemPct > 0
+                            ? `<span class="block text-[10px] font-semibold text-red-600 dark:text-red-400 whitespace-nowrap">${itemPct}% OFF <span class="text-stone-400 line-through">${origPriceDisplay}</span></span>`
+                            : ''
+                        }
                       </div>`
                 }
               </div>
@@ -3332,6 +3364,7 @@
 
     function renderModalVariants() {
       const grid = document.getElementById('modal-variants-grid');
+      const itemPct = getItemDiscountPercent(currentModalItem) || getActiveDiscountPercent();
       grid.innerHTML = currentModalItem.variants
         .map((variant, idx) => {
           const active = idx === selectedVariantIdx;
@@ -3339,14 +3372,17 @@
             <button
               type="button"
               onclick="selectModalVariant(${idx})"
-              class="p-3 rounded-2xl border-2 text-left transition flex items-center justify-between ${
+              class="p-3 rounded-2xl border-2 text-left transition flex items-center justify-between gap-2 ${
                 active
                   ? 'border-forest-800 bg-forest-800/10 dark:border-amber-400 dark:bg-amber-400/15'
                   : 'border-cream-300 dark:border-stone-700 bg-white dark:bg-stone-800 hover:border-forest-700/50'
               }"
             >
               <span class="min-w-0 break-words text-left text-xs sm:text-sm font-bold text-espresso-900 dark:text-stone-100">${variant.label}</span>
-              <span class="shrink-0 whitespace-nowrap pl-2 text-sm font-extrabold text-forest-800 dark:text-amber-300">₱${variant.price}</span>
+              <span class="shrink-0 whitespace-nowrap pl-2 text-right">
+                <span class="block text-sm font-extrabold text-forest-800 dark:text-amber-300">₱${formatMenuPrice(getDiscountedPrice(variant.price, itemPct))}</span>
+                ${itemPct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through">₱${formatMenuPrice(variant.price)}</span>` : ''}
+              </span>
             </button>
           `;
         })
@@ -3514,8 +3550,9 @@
 
     function updateModalTotalPrice() {
       const rawTotal = calculateModalUnitTotal() * modalQuantity;
-      const total = getActiveDiscountPercent() > 0
-        ? Math.round(rawTotal * (100 - getActiveDiscountPercent())) / 100
+      const pct = getItemDiscountPercent(currentModalItem) || getActiveDiscountPercent();
+      const total = pct > 0
+        ? Math.round(rawTotal * (100 - pct)) / 100
         : rawTotal;
       document.getElementById('modal-total-price').textContent = `₱${Number.isInteger(total) ? total : total.toFixed(2)}`;
     }
@@ -3558,6 +3595,7 @@
               addons: chosenAddons,
               note,
               unitPrice,
+              discountPercent: getItemDiscountPercent(currentModalItem),
               qty: qtyToSave
             };
           }
@@ -3579,6 +3617,7 @@
             addons: chosenAddons,
             note,
             unitPrice,
+            discountPercent: getItemDiscountPercent(currentModalItem),
             qty: qtyToSave
           });
         }
@@ -3641,7 +3680,7 @@
       return deliveryFeeEnabled ? Math.max(0, deliveryFeeAmount) : 0;
     }
 
-    // ---------- Storewide discount (e.g. 20% OFF for all menu items) ----------
+    // ---------- Discounts (storewide toggle + per-item discounts) ----------
     function getActiveDiscountPercent() {
       if (!discountEnabled) return 0;
       const pct = Number(discountPercent);
@@ -3649,14 +3688,49 @@
       return Math.min(100, pct);
     }
 
-    function getCartDiscountAmount() {
-      const pct = getActiveDiscountPercent();
-      if (!pct) return 0;
-      return Math.round(getCartSubtotal() * pct) / 100;
+    // Menu items may carry their own discountPercent (e.g. promo item).
+    function getItemDiscountPercent(item) {
+      if (!item) return 0;
+      const pct = Number(item.discountPercent);
+      if (!isFinite(pct) || pct <= 0) return 0;
+      return Math.min(100, pct);
     }
 
-    function getDiscountedPrice(price) {
+    // Item discount wins; otherwise the storewide discount applies.
+    function getCartLineDiscountPercent(cartItem) {
+      if (!cartItem) return getActiveDiscountPercent();
+      const own = Number(cartItem.discountPercent);
+      if (isFinite(own) && own > 0) return Math.min(100, own);
+      const menuItem = cartItem.itemId
+        ? menuItems.find((entry) => entry.id === cartItem.itemId)
+        : null;
+      const itemPct = getItemDiscountPercent(menuItem);
+      return itemPct > 0 ? itemPct : getActiveDiscountPercent();
+    }
+
+    function getCartDiscountAmount() {
+      const gross = getCartSubtotal();
+      const net = cart.reduce((sum, item) => {
+        const pct = getCartLineDiscountPercent(item);
+        const netUnit = Math.round(item.unitPrice * (100 - pct)) / 100;
+        return sum + netUnit * item.qty;
+      }, 0);
+      return Math.round((gross - net) * 100) / 100;
+    }
+
+    function getCartDiscountSummaryLabel() {
       const pct = getActiveDiscountPercent();
+      const hasItemLevel = cart.some((item) => {
+        const linePct = getCartLineDiscountPercent(item);
+        return linePct > 0 && linePct !== pct;
+      });
+      if (hasItemLevel) return 'Discounts';
+      if (pct > 0) return `Discount (${pct}%)`;
+      return 'Discount';
+    }
+
+    function getDiscountedPrice(price, pctOverride) {
+      const pct = typeof pctOverride === 'number' ? pctOverride : getActiveDiscountPercent();
       if (!pct) return price;
       return Math.round(price * (100 - pct)) / 100;
     }
@@ -3730,13 +3804,12 @@
 
     function updateCartTotalsUI() {
       const subtotal = getCartSubtotal();
-      const discountPct = getActiveDiscountPercent();
       const discountAmount = getCartDiscountAmount();
       const delivFee = getActiveDeliveryFee();
       const grandTotal = subtotal - discountAmount + delivFee;
 
       const discountRow = document.getElementById('cart-discount-row');
-      if (discountPct > 0 && discountAmount > 0) {
+      if (discountAmount > 0) {
         discountRow.classList.remove('hidden');
         discountRow.classList.add('flex');
       } else {
@@ -3754,7 +3827,7 @@
       }
 
       document.getElementById('cart-subtotal').textContent = `₱${subtotal.toFixed(2)}`;
-      document.getElementById('cart-discount-label').textContent = `Discount (${discountPct}%)`;
+      document.getElementById('cart-discount-label').textContent = getCartDiscountSummaryLabel();
       document.getElementById('cart-discount-amount').textContent = `-₱${discountAmount.toFixed(2)}`;
       document.getElementById('cart-delivery-fee').textContent = `₱${delivFee.toFixed(2)}`;
       document.getElementById('cart-total').textContent = `₱${grandTotal.toFixed(2)}`;
@@ -3787,14 +3860,18 @@
 
       container.innerHTML = cart
         .map((item) => {
-          const discountPct = getActiveDiscountPercent();
+          const linePct = getCartLineDiscountPercent(item);
           const grossLine = item.unitPrice * item.qty;
-          const netUnitPrice = getDiscountedPrice(item.unitPrice);
-          const netLine = Math.round(grossLine * (100 - discountPct)) / 100;
+          const netUnitPrice = getDiscountedPrice(item.unitPrice, linePct);
+          const netLine = Math.round(netUnitPrice * item.qty * 100) / 100;
           const unitPriceLabel =
-            discountPct > 0
+            linePct > 0
               ? `₱${formatMenuPrice(netUnitPrice)} each <span class="line-through text-stone-400 font-semibold">₱${formatMenuPrice(item.unitPrice)}</span>`
               : `₱${formatMenuPrice(item.unitPrice)} each`;
+          const lineDiscountBadge =
+            linePct > 0
+              ? `<span class="inline-block mt-0.5 px-1.5 py-0.5 rounded-md bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 text-[9px] font-extrabold whitespace-nowrap">${linePct}% OFF</span>`
+              : '';
           const flavorBadge =
             item.flavors && item.flavors.length > 0
               ? `<div class="text-[11px] font-semibold text-forest-700 dark:text-amber-300 mt-0.5 break-words">Flavor: ${item.flavors.join(', ')}</div>`
@@ -3820,12 +3897,13 @@
                   ${flavorBadge}
                   ${addonsList}
                   ${noteLine}
+                  ${lineDiscountBadge}
                 </div>
                 <div class="shrink-0 text-right">
                   <span class="block font-extrabold text-sm text-forest-800 dark:text-amber-300">
                     ₱${netLine.toFixed(0)}
                   </span>
-                  ${discountPct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through">₱${grossLine.toFixed(0)}</span>` : ''}
+                  ${linePct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through">₱${grossLine.toFixed(0)}</span>` : ''}
                 </div>
               </div>
 
@@ -3976,7 +4054,7 @@
 
       document.getElementById('checkout-total-display').textContent = `₱${total.toFixed(2)}`;
       const metaParts = [orderType];
-      if (discountPct > 0) metaParts.push(`${discountPct}% OFF`);
+      if (discountAmount > 0) metaParts.push(discountPct > 0 ? `${discountPct}% OFF` : 'Item discount');
       if (delivFee > 0) metaParts.push(`Delivery ₱${delivFee.toFixed(0)}`);
       if (customerName) metaParts.push(customerName);
       document.getElementById('checkout-order-meta').textContent = metaParts.join(' • ');
@@ -4088,6 +4166,10 @@
         items: JSON.parse(JSON.stringify(cart)),
         subtotal,
         discountPercent: discountPct,
+        itemDiscount: cart.some((item) => {
+          const linePct = getCartLineDiscountPercent(item);
+          return linePct > 0 && linePct !== discountPct;
+        }),
         discountAmount,
         deliveryFee: delivFee,
         total,
@@ -4167,9 +4249,14 @@
           </div>`);
       }
       if (orderDiscountAmount > 0) {
+        const discountLabel = order.itemDiscount
+          ? 'Discounts:'
+          : orderDiscountPercent > 0
+            ? `Discount (${orderDiscountPercent}%):`
+            : 'Item Discount:';
         breakdownLines.push(`
           <div class="flex justify-between text-[11px]">
-            <span>Discount (${orderDiscountPercent}%):</span>
+            <span>${discountLabel}</span>
             <span>-₱${orderDiscountAmount.toFixed(2)}</span>
           </div>`);
       }
@@ -4329,7 +4416,7 @@
               : '';
           const discountBadge =
             tx.discountAmount && tx.discountAmount > 0
-              ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">${tx.discountPercent || 0}% OFF (−₱${tx.discountAmount.toFixed(0)})</span>`
+              ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">${tx.itemDiscount ? 'Discounts' : tx.discountPercent > 0 ? `${tx.discountPercent}% OFF` : 'Item discount'} (−₱${tx.discountAmount.toFixed(0)})</span>`
               : '';
           const isConfirmingDelete = pendingDeleteOrderIndex === idx;
 

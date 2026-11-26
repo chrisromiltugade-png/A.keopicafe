@@ -230,6 +230,23 @@
 
     menuItems = ensurePremiumCookies(menuItems);
 
+    // Items may carry their own discount (e.g. promo item) from the POS menu.
+    function getItemDiscountPercent(item) {
+      const pct = Number(item && item.discountPercent);
+      return isFinite(pct) && pct > 0 ? Math.min(100, pct) : 0;
+    }
+
+    function getDiscountedPrice(item, price) {
+      const pct = getItemDiscountPercent(item);
+      if (!pct) return Number(price);
+      return Math.round(Number(price) * (100 - pct)) / 100;
+    }
+
+    function getCartItemGross(item) {
+      const addonsSum = (item.addons || []).reduce((sum, addon) => sum + Number(addon.price), 0);
+      return Number(item.basePrice) + addonsSum;
+    }
+
     let cart = [];
     let orderType = 'Dine-In';
     let selectedItem = null;
@@ -306,14 +323,15 @@
           const menuItem = remoteItems.find((item) => item.id === cartItem.itemId || item.name === cartItem.name);
           if (!menuItem) return cartItem;
           const variant = (menuItem.variants || []).find((item) => item.label === cartItem.variantLabel);
-          return variant
-            ? {
-              ...cartItem,
-              basePrice: Number(variant.price),
-              unitPrice: Number(variant.price) + (cartItem.addons || []).reduce((sum, addon) => sum + Number(addon.price), 0),
-              category: menuItem.category
-            }
-            : cartItem;
+          if (!variant) return cartItem;
+          const gross = Number(variant.price) + (cartItem.addons || []).reduce((sum, addon) => sum + Number(addon.price), 0);
+          return {
+            ...cartItem,
+            basePrice: Number(variant.price),
+            unitPrice: getDiscountedPrice(menuItem, gross),
+            discountPercent: getItemDiscountPercent(menuItem),
+            category: menuItem.category
+          };
         });
 
         renderMenu();
@@ -350,15 +368,21 @@
       list.innerHTML = visibleCategories.map((category) => {
         const categoryItems = filtered.filter((item) => (item.category || 'Other') === category);
         const cards = categoryItems.map((item) => {
-        const prices = item.variants.map((v) => Number(v.price));
+        const pct = getItemDiscountPercent(item);
+        const prices = item.variants.map((v) => getDiscountedPrice(item, v.price));
+        const origPrices = item.variants.map((v) => Number(v.price));
         const price = Math.min(...prices) === Math.max(...prices)
           ? `₱${Math.min(...prices)}`
           : `₱${Math.min(...prices)}–₱${Math.max(...prices)}`;
+        const origPrice = Math.min(...origPrices) === Math.max(...origPrices)
+          ? `₱${Math.min(...origPrices)}`
+          : `₱${Math.min(...origPrices)}–₱${Math.max(...origPrices)}`;
         return `<button type="button" onclick="openItemModal('${item.id}')"
           class="flex min-w-0 flex-col rounded-2xl border border-stone-200 bg-white p-3 text-left shadow-sm transition hover:border-[#C9A84D]">
           <h3 class="mt-1 min-h-10 text-sm font-extrabold break-words">${item.name}</h3>
           ${item.description ? `<p class="mt-1 line-clamp-3 text-[11px] leading-snug text-stone-500 break-words">${item.description}</p>` : ''}
           <p class="mt-2 whitespace-nowrap text-sm font-extrabold text-[#A77D1D]">${price}</p>
+          ${pct > 0 ? `<p class="text-[10px] font-bold text-red-600 whitespace-nowrap">${pct}% OFF <span class="font-semibold text-stone-400 line-through">${origPrice}</span></p>` : ''}
         </button>`;
         }).join('');
         return `<div><h2 class="mb-2 text-lg font-extrabold text-[#133824]">${category}</h2><div class="grid grid-cols-2 gap-2 sm:grid-cols-3">${cards}</div></div>`;
@@ -394,9 +418,10 @@
     }
 
     function updateSelectedItemPrice() {
-      const basePrice = Number(selectedItem.variants[selectedVariant].price);
-      const addonPrice = Array.from(selectedAddons).reduce((sum, index) => sum + Number(selectedItem.addons[index].price), 0);
-      document.getElementById('add-item-button').textContent = `Add to Order • ₱${(basePrice + addonPrice).toFixed(2)}`;
+      const gross = Number(selectedItem.variants[selectedVariant].price) +
+        Array.from(selectedAddons).reduce((sum, index) => sum + Number(selectedItem.addons[index].price), 0);
+      const net = getDiscountedPrice(selectedItem, gross);
+      document.getElementById('add-item-button').textContent = `Add to Order • ₱${net.toFixed(2)}`;
     }
 
     function openItemModal(itemId) {
@@ -407,12 +432,15 @@
       document.getElementById('item-category').textContent = selectedItem.category;
       document.getElementById('item-name').textContent = selectedItem.name;
       document.getElementById('item-description').textContent = selectedItem.description || '';
-      document.getElementById('variant-list').innerHTML = selectedItem.variants.map((variant, index) =>
-        `<button type="button" onclick="selectVariant(${index})" id="variant-${index}"
+      document.getElementById('variant-list').innerHTML = selectedItem.variants.map((variant, index) => {
+        const pct = getItemDiscountPercent(selectedItem);
+        const netPrice = getDiscountedPrice(selectedItem, variant.price);
+        return `<button type="button" onclick="selectVariant(${index})" id="variant-${index}"
           class="flex w-full items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-sm ${index === 0 ? 'border-[#C9A84D] bg-[#FFF9E8] font-bold' : 'border-stone-300'}">
-          <span class="min-w-0 break-words">${variant.label}</span><span class="shrink-0 whitespace-nowrap">₱${variant.price}</span>
-        </button>`
-      ).join('');
+          <span class="min-w-0 break-words">${variant.label}</span>
+          <span class="shrink-0 whitespace-nowrap text-right"><span class="block">₱${netPrice}</span>${pct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through">₱${variant.price}</span>` : ''}</span>
+        </button>`;
+      }).join('');
       renderAddons();
       updateSelectedItemPrice();
       const modal = document.getElementById('item-modal');
@@ -442,9 +470,11 @@
       const addonKey = addons.map((addon) => addon.name).sort().join('|');
       const existing = cart.find((item) => item.itemId === selectedItem.id && item.variantLabel === variant.label && item.addonKey === addonKey);
       const basePrice = Number(variant.price);
-      const unitPrice = basePrice + addons.reduce((sum, addon) => sum + Number(addon.price), 0);
+      const gross = basePrice + addons.reduce((sum, addon) => sum + Number(addon.price), 0);
+      const pct = getItemDiscountPercent(selectedItem);
+      const unitPrice = getDiscountedPrice(selectedItem, gross);
       if (existing) existing.qty += 1;
-      else cart.push({ itemId: selectedItem.id, name: selectedItem.name, category: selectedItem.category, variantLabel: variant.label, basePrice, addons, addonKey, unitPrice, qty: 1 });
+      else cart.push({ itemId: selectedItem.id, name: selectedItem.name, category: selectedItem.category, variantLabel: variant.label, basePrice, addons, addonKey, unitPrice, discountPercent: pct, qty: 1 });
       closeItemModal();
       renderCart();
     }
@@ -456,15 +486,19 @@
       document.getElementById('cart-total').textContent = total.toFixed(2);
       document.getElementById('place-order').disabled = cart.length === 0 || !isStoreOpen();
       document.getElementById('cart-items').innerHTML = cart.length
-        ? cart.map((item, index) => `
+        ? cart.map((item, index) => {
+          const pct = Number(item.discountPercent) || 0;
+          const grossEach = getCartItemGross(item);
+          return `
           <div class="flex items-center justify-between gap-2 rounded-xl border border-stone-200 p-3">
-            <div class="min-w-0"><p class="text-sm font-bold break-words">${item.name}</p><p class="text-xs text-stone-500 break-words">${item.variantLabel} • ₱${item.unitPrice} each</p>${item.addons && item.addons.length ? `<p class="text-xs text-stone-500 break-words">Add-ons: ${item.addons.map((addon) => `${addon.name} (+₱${addon.price})`).join(', ')}</p>` : ''}</div>
+            <div class="min-w-0"><p class="text-sm font-bold break-words">${item.name}</p><p class="text-xs text-stone-500 break-words">${item.variantLabel} • ₱${item.unitPrice} each ${pct > 0 ? `<span class="font-extrabold text-red-600">${pct}% OFF</span> <span class="line-through text-stone-400">₱${grossEach}</span>` : ''}</p>${item.addons && item.addons.length ? `<p class="text-xs text-stone-500 break-words">Add-ons: ${item.addons.map((addon) => `${addon.name} (+₱${addon.price})`).join(', ')}</p>` : ''}</div>
             <div class="flex shrink-0 items-center gap-2">
               <button type="button" onclick="changeQty(${index},-1)" class="h-8 w-8 rounded-lg bg-stone-100">−</button>
               <span class="text-sm font-bold">${item.qty}</span>
               <button type="button" onclick="changeQty(${index},1)" class="h-8 w-8 rounded-lg bg-stone-100">+</button>
             </div>
-          </div>`).join('')
+          </div>`;
+        }).join('')
         : '<p class="py-8 text-center text-sm text-stone-400">Your order is empty</p>';
     }
 
@@ -513,6 +547,8 @@
       const button = document.getElementById('place-order');
       button.disabled = true;
       const subtotal = cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+      const grossSubtotal = cart.reduce((sum, item) => sum + getCartItemGross(item) * item.qty, 0);
+      const itemDiscountAmount = Math.round((grossSubtotal - subtotal) * 100) / 100;
       const orderCode = generateOrderCode();
       try {
         await db.collection('orders').add({
@@ -524,6 +560,7 @@
           orderType,
           items: JSON.parse(JSON.stringify(cart)),
           subtotal,
+          discountAmount: itemDiscountAmount,
           deliveryFee: 0,
           total: subtotal,
           paymentMethod: document.getElementById('payment-method').value,
