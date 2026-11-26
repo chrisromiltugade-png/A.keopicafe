@@ -1075,7 +1075,7 @@
       <div class="px-5 py-4 border-b border-cream-200 dark:border-stone-800 flex items-center justify-between bg-white dark:bg-stone-900">
         <div>
           <h3 class="text-lg font-extrabold text-forest-800 dark:text-amber-200">Manage A.Keopi Menu</h3>
-          <p class="text-xs text-stone-500 dark:text-stone-400">Add new items, toggle availability (Sold Out), or edit prices</p>
+          <p class="text-xs text-stone-500 dark:text-stone-400">Add new items, edit add-ons, toggle availability (Sold Out), or edit prices</p>
         </div>
         <button
           onclick="closeManageMenuModal()"
@@ -1139,7 +1139,7 @@
       </div>
 
       <!-- Existing Menu Items Filter & List -->
-      <div class="px-5 py-2.5 bg-white dark:bg-stone-900 border-b border-cream-200 dark:border-stone-800 flex items-center justify-between gap-2">
+      <div class="px-5 py-2.5 bg-white dark:bg-stone-900 border-b border-cream-200 dark:border-stone-800 flex flex-wrap items-center justify-between gap-2">
         <input
           id="manage-search-input"
           type="text"
@@ -1147,19 +1147,89 @@
           placeholder="Filter menu items to edit..."
           class="w-full max-w-xs px-3 py-1.5 rounded-xl bg-cream-100 dark:bg-stone-800 text-xs border border-cream-300 dark:border-stone-700"
         />
-        <div id="reset-menu-confirm-group">
+        <div class="flex flex-wrap items-center gap-1.5">
           <button
-            onclick="promptResetDefaultMenu()"
-            class="px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-bold hover:bg-amber-200 transition"
+            onclick="openManageAddonsModal()"
+            class="px-3 py-1.5 rounded-xl bg-forest-800 hover:bg-forest-700 dark:bg-amber-500 dark:hover:bg-amber-400 text-white dark:text-stone-950 text-xs font-extrabold transition"
+            title="Edit, add, or delete add-ons per category group"
           >
-            Reset Default Menu
+            Add-ons
           </button>
+          <div id="reset-menu-confirm-group">
+            <button
+              onclick="promptResetDefaultMenu()"
+              class="px-3 py-1.5 rounded-xl bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-xs font-bold hover:bg-amber-200 transition"
+            >
+              Reset Default Menu
+            </button>
+          </div>
         </div>
       </div>
 
       <div id="manage-menu-list" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2">
         <!-- Menu items editor rows injected dynamically -->
       </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 6: MANAGE ADD-ONS ==================== -->
+  <div id="manage-addons-modal" class="fixed inset-0 z-[55] hidden items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs" onclick="if(event.target===this)closeManageAddonsModal()">
+    <div class="bg-cream-50 dark:bg-stone-900 border border-cream-200 dark:border-stone-800 rounded-3xl w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-4 sm:px-5 py-4 border-b border-cream-200 dark:border-stone-800 flex items-center justify-between gap-2 bg-white dark:bg-stone-900">
+        <div class="min-w-0">
+          <h3 class="text-lg font-extrabold text-forest-800 dark:text-amber-200 break-words">Manage Add-ons</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 break-words">I-edit ang name o price, magdagdag, o magbura ng add-on. Sabay na nag-a-update sa lahat ng item sa group.</p>
+        </div>
+        <button
+          onclick="closeManageAddonsModal()"
+          class="shrink-0 p-2 rounded-xl bg-cream-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300"
+          aria-label="Close add-ons"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="addon-group-tabs" class="flex gap-1.5 overflow-x-auto px-4 py-3 bg-cream-100/80 dark:bg-stone-950/60 border-b border-cream-200 dark:border-stone-800">
+        <!-- Group tab buttons injected dynamically -->
+      </div>
+
+      <div id="addon-group-hint" class="px-4 pt-3 text-[11px] font-semibold text-stone-600 dark:text-stone-300 break-words leading-relaxed"></div>
+
+      <div id="addon-editor-list" class="flex-1 overflow-y-auto p-4 space-y-2">
+        <!-- Add-on editor rows injected dynamically -->
+      </div>
+
+      <form onsubmit="addAddonToGroup(event)" class="border-t border-cream-200 dark:border-stone-800 bg-cream-100/80 dark:bg-stone-950/60 p-3 sm:p-4 space-y-2">
+        <p class="text-[11px] font-extrabold uppercase text-stone-500">Add new add-on</p>
+        <div class="grid grid-cols-1 sm:grid-cols-[1fr_7rem_auto] gap-2 items-center">
+          <input
+            id="addon-new-name"
+            type="text"
+            placeholder="e.g., Extra Espresso Shot"
+            class="min-w-0 w-full px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700 text-xs font-semibold"
+          />
+          <div class="flex min-w-0 items-center gap-1">
+            <span class="shrink-0 text-[11px] font-bold text-stone-500">₱</span>
+            <input
+              id="addon-new-price"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              step="0.01"
+              placeholder="Price"
+              class="min-w-0 w-full px-3 py-2 rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700 text-xs font-bold"
+            />
+          </div>
+          <button
+            type="submit"
+            class="w-full sm:w-auto whitespace-nowrap px-4 py-2 rounded-xl bg-forest-800 hover:bg-forest-700 text-white text-xs font-extrabold transition"
+          >
+            + Add
+          </button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1270,6 +1340,35 @@
     const WAFFLE_ADDONS = [
       { name: 'Spread', price: 20 },
       { name: 'Toppings', price: 10 }
+    ];
+
+    // Add-on groups: isang listahan ng add-ons bawat category group, at
+    // auto-apply sa lahat ng item na kabilang doon. Pwedeng i-rename,
+    // palitan ang presyo, burahin, o magdagdag ng bago sa
+    // Manage Menu → Add-ons. Walang idinagdag na add-on = nakatago ang
+    // Optional Add-Ons section sa item modal.
+    const DEFAULT_ADDON_GROUPS = {
+      coffee: COFFEE_DRINK_ADDONS,
+      sodaFrappe: SODA_FRAPPE_ADDONS,
+      rice: RICE_MEAL_ADDONS,
+      noodles: NOODLES_ADDONS,
+      burger: BURGER_SANDWICH_ADDONS,
+      fries: FRIES_SNACKS_ADDONS,
+      waffle: WAFFLE_ADDONS,
+      croffleDonut: [],
+      cookies: []
+    };
+
+    const ADDON_GROUP_DEFS = [
+      { key: 'coffee', label: 'Coffee Drinks' },
+      { key: 'sodaFrappe', label: 'Soda & Frappe' },
+      { key: 'rice', label: 'Rice Meal' },
+      { key: 'noodles', label: 'Korean Noodles' },
+      { key: 'burger', label: 'Burger & Sandwich' },
+      { key: 'fries', label: 'Fries & Snacks' },
+      { key: 'waffle', label: 'Waffle Pancake' },
+      { key: 'croffleDonut', label: 'Croffles & Donuts' },
+      { key: 'cookies', label: 'Premium Cookies' }
     ];
 
     const SODA_SERIES_FLAVORS = [
@@ -2774,7 +2873,8 @@
       ITEM_DISCOUNT_MIGRATION: 'akeopi_pos_item_discount_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
-      STORE_HOURS: 'akeopi_pos_store_hours_v1'
+      STORE_HOURS: 'akeopi_pos_store_hours_v1',
+      ADDON_GROUPS: 'akeopi_pos_addon_groups_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2812,6 +2912,8 @@
     let pendingCustomerOrders = [];
     let handledIncomingOrders = [];
     let storeHours = { open: '10:00', close: '22:00' };
+    let addonGroups = null;
+    let activeAddonGroupKey = 'coffee';
     let firebaseDb = null;
 
     const firebaseConfig = {
@@ -2886,6 +2988,8 @@
 
       applyPriceMigrations();
       applyItemDiscountMigrations();
+      restoreAddonGroups();
+      applyAddonGroupsToMenu(true);
       try {
         const savedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
         transactions = savedTx ? JSON.parse(savedTx) : [];
@@ -3503,7 +3607,7 @@
                 </span>
                 <span class="break-words">${addon.name}</span>
               </span>
-              <span class="shrink-0 whitespace-nowrap pl-2 text-xs font-extrabold text-forest-700 dark:text-amber-300">+₱${addon.price}</span>
+              <span class="shrink-0 whitespace-nowrap pl-2 text-xs font-extrabold text-forest-700 dark:text-amber-300">+₱${formatMenuPrice(Number(addon.price) || 0)}</span>
             </button>
           `;
         })
@@ -4569,18 +4673,86 @@
       modal.classList.remove('flex');
     }
 
-    function getDefaultAddonsForCategory(category) {
+    function getAddonGroupKeyForCategory(category) {
       if (['Classic Coffee', 'Special Coffee', 'Strawberry & Matcha', 'Non-Coffee'].includes(category)) {
-        return COFFEE_DRINK_ADDONS;
+        return 'coffee';
       }
-      if (['Soda, Frizz & Refresher', 'Frappe Series'].includes(category)) {
-        return SODA_FRAPPE_ADDONS;
+      if (['Soda, Frizz & Refresher', 'Frappe Series'].includes(category)) return 'sodaFrappe';
+      if (category === 'Rice Meal') return 'rice';
+      if (category === 'Korean Noodles') return 'noodles';
+      if (category === 'Burger & Sandwich') return 'burger';
+      if (category === 'Fries & Snacks') return 'fries';
+      if (category === 'Croffles, Donuts & Waffles') return 'croffleDonut';
+      if (category === 'Premium Cookies') return 'cookies';
+      return null;
+    }
+
+    function getAddonGroupKeyForItem(item) {
+      if (!item) return null;
+      // Waffle Pancake items have their own add-ons; croffles and donuts
+      // share the (initially empty) Croffles & Donuts group.
+      if (item.category === 'Croffles, Donuts & Waffles') {
+        return item.subType === 'Waffle Pancake' ? 'waffle' : 'croffleDonut';
       }
-      if (category === 'Rice Meal') return RICE_MEAL_ADDONS;
-      if (category === 'Korean Noodles') return NOODLES_ADDONS;
-      if (category === 'Burger & Sandwich') return BURGER_SANDWICH_ADDONS;
-      if (category === 'Fries & Snacks') return FRIES_SNACKS_ADDONS;
-      return [];
+      return getAddonGroupKeyForCategory(item.category);
+    }
+
+    function cloneAddonList(list) {
+      return JSON.parse(JSON.stringify(Array.isArray(list) ? list : []));
+    }
+
+    function restoreAddonGroups() {
+      let saved = null;
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.ADDON_GROUPS);
+        saved = raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        saved = null;
+      }
+      addonGroups = {};
+      ADDON_GROUP_DEFS.forEach((def) => {
+        const source = saved && Array.isArray(saved[def.key]) ? saved[def.key] : DEFAULT_ADDON_GROUPS[def.key];
+        addonGroups[def.key] = (source || [])
+          .map((addon) => ({
+            name: String(addon && addon.name ? addon.name : '').trim(),
+            price: Math.max(0, Math.round((Number(addon && addon.price) || 0) * 100) / 100)
+          }))
+          .filter((addon) => addon.name);
+      });
+    }
+
+    function saveAddonGroupsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.ADDON_GROUPS, JSON.stringify(addonGroups));
+      } catch (e) {
+        console.error('Failed to save add-ons:', e);
+      }
+    }
+
+    // Copies every add-on group into the menu items that use it so the cashier
+    // item modal, the customer page, and Firebase all show the same add-ons.
+    function applyAddonGroupsToMenu(persist) {
+      if (!addonGroups) return false;
+      let changed = false;
+      menuItems.forEach((item) => {
+        if (!item) return;
+        const key = getAddonGroupKeyForItem(item);
+        if (!key) return;
+        const nextAddons = cloneAddonList(addonGroups[key]);
+        const currentJson = JSON.stringify(Array.isArray(item.addons) ? item.addons : []);
+        if (item.addonGroup !== key || currentJson !== JSON.stringify(nextAddons)) {
+          item.addonGroup = key;
+          item.addons = nextAddons;
+          changed = true;
+        }
+      });
+      if (persist && changed) saveMenuToStorage();
+      return changed;
+    }
+
+    function getDefaultAddonsForCategory(category) {
+      const key = getAddonGroupKeyForCategory(category);
+      return key && addonGroups ? cloneAddonList(addonGroups[key]) : [];
     }
 
     function saveMenuItemForm(e) {
@@ -4613,12 +4785,18 @@
         return;
       }
 
+      const addonGroupKey = getAddonGroupKeyForCategory(category);
+
       if (editId) {
         const idx = menuItems.findIndex((i) => i.id === editId);
         if (idx > -1) {
           menuItems[idx].name = name;
           menuItems[idx].category = category;
           menuItems[idx].variants = parsedVariants;
+          if (addonGroupKey) {
+            menuItems[idx].addonGroup = addonGroupKey;
+            menuItems[idx].addons = cloneAddonList(addonGroups[addonGroupKey]);
+          }
         }
         showToast(`Updated "${name}"`);
       } else {
@@ -4627,7 +4805,8 @@
           category,
           name,
           variants: parsedVariants,
-          addons: getDefaultAddonsForCategory(category),
+          addons: addonGroupKey ? cloneAddonList(addonGroups[addonGroupKey]) : [],
+          addonGroup: addonGroupKey || null,
           available: true
         });
         showToast(`Added "${name}" to menu`);
@@ -4701,6 +4880,8 @@
         .map((item) => {
           const isAvailable = item.available !== false;
           const variantsStr = item.variants.map((v) => `${v.label} ₱${v.price}`).join(' • ');
+          const addonsCount = Array.isArray(item.addons) ? item.addons.length : 0;
+          const addonsStr = addonsCount ? ` • ${addonsCount} add-on${addonsCount > 1 ? 's' : ''}` : ' • no add-ons';
           return `
             <div class="p-3 rounded-2xl bg-white dark:bg-stone-800 border border-cream-200 dark:border-stone-700 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div class="min-w-0">
@@ -4712,7 +4893,7 @@
                     ${item.category}
                   </span>
                 </div>
-                <p class="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5 truncate">${variantsStr}</p>
+                <p class="text-[11px] text-stone-500 dark:text-stone-400 mt-0.5 truncate">${variantsStr}${addonsStr}</p>
               </div>
 
               <div class="flex items-center gap-1.5 shrink-0">
@@ -4765,6 +4946,7 @@
 
     function confirmResetDefaultMenu() {
       menuItems = JSON.parse(JSON.stringify(DEFAULT_MENU_ITEMS));
+      applyAddonGroupsToMenu(false);
       saveMenuToStorage();
       renderManageMenuList();
       renderCategoryTabs();
@@ -4773,7 +4955,211 @@
     }
 
     // =========================================================================
-    // 11b. STORE HOURS (OPENING / CLOSING TIME)
+    // 11b. MANAGE ADD-ONS (EDIT, ADD, DELETE PER GROUP)
+    // =========================================================================
+    function escapeHtmlAttr(value) {
+      return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+    }
+
+    function getActiveAddonGroupDef() {
+      return ADDON_GROUP_DEFS.find((def) => def.key === activeAddonGroupKey) || ADDON_GROUP_DEFS[0];
+    }
+
+    function getAddonGroupUsageCount(key) {
+      return menuItems.filter((item) => getAddonGroupKeyForItem(item) === key).length;
+    }
+
+    function openManageAddonsModal() {
+      if (!addonGroups) restoreAddonGroups();
+      document.getElementById('addon-new-name').value = '';
+      document.getElementById('addon-new-price').value = '';
+      renderAddonGroupTabs();
+      renderAddonEditorList();
+      const modal = document.getElementById('manage-addons-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeManageAddonsModal() {
+      const modal = document.getElementById('manage-addons-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function selectAddonGroup(key) {
+      activeAddonGroupKey = key;
+      document.getElementById('addon-new-name').value = '';
+      document.getElementById('addon-new-price').value = '';
+      renderAddonGroupTabs();
+      renderAddonEditorList();
+    }
+
+    function renderAddonGroupTabs() {
+      const wrap = document.getElementById('addon-group-tabs');
+      if (!wrap) return;
+      wrap.innerHTML = ADDON_GROUP_DEFS.map((def) => {
+        const active = def.key === activeAddonGroupKey;
+        const count = (addonGroups && addonGroups[def.key] ? addonGroups[def.key].length : 0);
+        return `
+          <button
+            type="button"
+            onclick="selectAddonGroup('${def.key}')"
+            class="shrink-0 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-[11px] font-bold transition ${
+              active
+                ? 'bg-forest-800 text-white border-forest-800 dark:bg-amber-500 dark:text-stone-950 dark:border-amber-500'
+                : 'bg-white dark:bg-stone-800 text-espresso-800 dark:text-stone-300 border-cream-300 dark:border-stone-700 hover:border-forest-700'
+            }"
+          >
+            ${def.label} (${count})
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderAddonEditorList() {
+      const listEl = document.getElementById('addon-editor-list');
+      const hintEl = document.getElementById('addon-group-hint');
+      if (!listEl || !addonGroups) return;
+
+      const def = getActiveAddonGroupDef();
+      const list = addonGroups[def.key] || [];
+      const usage = getAddonGroupUsageCount(def.key);
+
+      if (hintEl) {
+        hintEl.innerHTML = `
+          <span class="font-extrabold text-forest-800 dark:text-amber-200">${def.label}</span>
+          <span> • gagamitin ng ${usage} item${usage === 1 ? '' : 's'}</span>
+          <span class="block text-[10px] text-stone-500">Pagbabago dito, sabay na nag-a-update sa lahat ng item sa group. I-tap ang price o name para i-edit.</span>
+        `;
+      }
+
+      if (list.length === 0) {
+        listEl.innerHTML = `
+          <div class="rounded-2xl border border-dashed border-cream-300 dark:border-stone-700 p-6 text-center">
+            <p class="text-xs font-bold text-stone-500 dark:text-stone-400">Walang add-on sa group na ito.</p>
+            <p class="mt-1 text-[11px] text-stone-400 dark:text-stone-500">Gamitin ang form sa ibaba para magdagdag.</p>
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = list
+        .map((addon, idx) => {
+          return `
+            <div class="flex items-center gap-2 rounded-2xl border border-cream-200 bg-white p-2 dark:border-stone-700 dark:bg-stone-800">
+              <input
+                type="text"
+                value="${escapeHtmlAttr(addon.name)}"
+                onchange="updateAddonField(${idx}, 'name', this.value)"
+                aria-label="Add-on name"
+                class="min-w-0 flex-1 rounded-xl border border-cream-300 bg-cream-50 px-2.5 py-1.5 text-xs font-semibold dark:border-stone-700 dark:bg-stone-900"
+              />
+              <div class="flex shrink-0 items-center gap-1">
+                <span class="text-[11px] font-bold text-stone-500">₱</span>
+                <input
+                  type="number"
+                  inputmode="decimal"
+                  min="0"
+                  step="0.01"
+                  value="${Number(addon.price)}"
+                  onchange="updateAddonField(${idx}, 'price', this.value)"
+                  aria-label="Add-on price"
+                  class="w-20 rounded-xl border border-cream-300 bg-cream-50 px-2 py-1.5 text-xs font-bold dark:border-stone-700 dark:bg-stone-900"
+                />
+              </div>
+              <button
+                type="button"
+                onclick="deleteAddonFromGroup(${idx})"
+                class="shrink-0 rounded-lg px-2 py-1.5 text-[11px] font-extrabold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                title="Delete add-on"
+              >
+                ✕
+              </button>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function persistAddonGroupChange(message, rerenderList) {
+      applyAddonGroupsToMenu(false);
+      saveAddonGroupsToStorage();
+      saveMenuToStorage();
+      renderAddonGroupTabs();
+      if (rerenderList) renderAddonEditorList();
+      renderManageMenuList();
+      renderMenuGrid();
+      if (message) showToast(message);
+    }
+
+    function updateAddonField(index, field, value) {
+      const def = getActiveAddonGroupDef();
+      const list = addonGroups ? addonGroups[def.key] : null;
+      const addon = list && list[index];
+      if (!addon) return;
+
+      if (field === 'name') {
+        const nextName = String(value).trim();
+        if (!nextName) {
+          showToast('Add-on name cannot be empty');
+          renderAddonEditorList();
+          return;
+        }
+        addon.name = nextName;
+        persistAddonGroupChange(`${def.label}: na-update ang "${nextName}"`, false);
+      } else if (field === 'price') {
+        const nextPrice = Number(value);
+        if (!isFinite(nextPrice) || nextPrice < 0) {
+          showToast('Enter a valid add-on price');
+          renderAddonEditorList();
+          return;
+        }
+        addon.price = Math.round(nextPrice * 100) / 100;
+        persistAddonGroupChange(`${addon.name}: ₱${formatMenuPrice(addon.price)}`, false);
+      }
+    }
+
+    function deleteAddonFromGroup(index) {
+      const def = getActiveAddonGroupDef();
+      const list = addonGroups ? addonGroups[def.key] : null;
+      const addon = list && list[index];
+      if (!addon) return;
+      list.splice(index, 1);
+      persistAddonGroupChange(`Removed "${addon.name}"`, true);
+    }
+
+    function addAddonToGroup(e) {
+      e.preventDefault();
+      const def = getActiveAddonGroupDef();
+      const nameInput = document.getElementById('addon-new-name');
+      const priceInput = document.getElementById('addon-new-price');
+      const name = nameInput.value.trim();
+      const price = Number(priceInput.value);
+
+      if (!name) {
+        showToast('Enter the add-on name');
+        nameInput.focus();
+        return;
+      }
+      if (!isFinite(price) || price < 0 || priceInput.value === '') {
+        showToast('Enter a valid add-on price');
+        priceInput.focus();
+        return;
+      }
+
+      addonGroups[def.key].push({ name, price: Math.round(price * 100) / 100 });
+      nameInput.value = '';
+      priceInput.value = '';
+      persistAddonGroupChange(`Added "${name}" to ${def.label}`, true);
+      nameInput.focus();
+    }
+
+    // =========================================================================
+    // 11c. STORE HOURS (OPENING / CLOSING TIME)
     // =========================================================================
     const DEFAULT_STORE_HOURS = { open: '10:00', close: '22:00' };
 
