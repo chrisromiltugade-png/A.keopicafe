@@ -118,6 +118,176 @@
       overflow-wrap: anywhere;
     }
 
+    /* ============================================================
+       APP OPENING SPLASH
+       Brand curtain intro shown once whenever the app opens.
+       Tap anywhere to skip.
+       ============================================================ */
+    #app-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      background: #0B0B0C;
+      touch-action: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .app-splash__curtain {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50.5%;
+      background: #0B0B0C;
+      z-index: 1;
+      transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
+      will-change: transform;
+    }
+
+    .app-splash__curtain--left {
+      left: 0;
+      border-right: 1px solid rgba(201, 168, 77, 0.14);
+    }
+
+    .app-splash__curtain--right {
+      right: 0;
+      border-left: 1px solid rgba(201, 168, 77, 0.14);
+    }
+
+    #app-splash.is-opening .app-splash__curtain--left {
+      transform: translateX(-100%);
+    }
+
+    #app-splash.is-opening .app-splash__curtain--right {
+      transform: translateX(100%);
+    }
+
+    #app-splash.is-done {
+      display: none;
+    }
+
+    .app-splash__brand {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding: 24px;
+      text-align: center;
+      transition: opacity 0.35s ease, transform 0.4s ease;
+    }
+
+    #app-splash.is-opening .app-splash__brand {
+      opacity: 0;
+      transform: scale(0.94);
+    }
+
+    .app-splash__mark {
+      width: 92px;
+      height: 92px;
+      padding: 8px;
+      border-radius: 22px;
+      background: #ffffff;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      transform: scale(0.75) translateY(10px);
+      animation: appSplashMark 0.7s cubic-bezier(0.77, 0, 0.175, 1) 0.05s forwards;
+    }
+
+    .app-splash__mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 14px;
+    }
+
+    .app-splash__title {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: clamp(1.6rem, 6vw, 2.3rem);
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      color: #F4F4F6;
+      opacity: 0;
+      transform: translateY(12px);
+      animation: appSplashText 0.55s cubic-bezier(0.77, 0, 0.175, 1) 0.25s forwards;
+    }
+
+    .app-splash__sub {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: min(240px, 68vw);
+      opacity: 0;
+      animation: appSplashFade 0.4s ease 0.4s forwards;
+    }
+
+    .app-splash__line {
+      flex: 1;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(201, 168, 77, 0), #C9A84D);
+      transform: scaleX(0);
+      transform-origin: left;
+      animation: appSplashLine 0.5s cubic-bezier(0.77, 0, 0.175, 1) 0.42s forwards;
+    }
+
+    .app-splash__sub .app-splash__line:last-child {
+      transform-origin: right;
+      background: linear-gradient(270deg, rgba(201, 168, 77, 0), #C9A84D);
+    }
+
+    .app-splash__cafe {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      color: #C9A84D;
+    }
+
+    .app-splash__progress {
+      width: 132px;
+      height: 2px;
+      margin-top: 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      overflow: hidden;
+      opacity: 0;
+      animation: appSplashFade 0.3s ease 0.5s forwards;
+    }
+
+    .app-splash__bar {
+      height: 100%;
+      width: 100%;
+      background: #C9A84D;
+      transform: translateX(-100%);
+      animation: appSplashBar 1.05s cubic-bezier(0.77, 0, 0.175, 1) 0.5s forwards;
+    }
+
+    @keyframes appSplashMark {
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @keyframes appSplashText {
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes appSplashLine {
+      to { transform: scaleX(1); }
+    }
+    @keyframes appSplashFade {
+      to { opacity: 1; }
+    }
+    @keyframes appSplashBar {
+      to { transform: translateX(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #app-splash {
+        display: none !important;
+      }
+    }
+
     /* Thermal Receipt Print Styles */
     @media print {
       body * {
@@ -149,6 +319,24 @@
   </style>
 </head>
 <body class="bg-cream-100 text-espresso-900 dark:bg-stone-950 dark:text-stone-100 font-sans antialiased selection:bg-forest-700 selection:text-white overflow-x-hidden">
+
+  <!-- ==================== APP OPENING SPLASH ==================== -->
+  <div id="app-splash" role="status" aria-live="polite" aria-label="Opening A.Keopi POS">
+    <div class="app-splash__curtain app-splash__curtain--left"></div>
+    <div class="app-splash__curtain app-splash__curtain--right"></div>
+    <div class="app-splash__brand">
+      <div class="app-splash__mark">
+        <img src="./A-keopicafe-logo.jpg" alt="A.Keopi Cafe logo" />
+      </div>
+      <div class="app-splash__title">A.KEOPI</div>
+      <div class="app-splash__sub">
+        <span class="app-splash__line"></span>
+        <span class="app-splash__cafe">CAFE</span>
+        <span class="app-splash__line"></span>
+      </div>
+      <div class="app-splash__progress"><div class="app-splash__bar"></div></div>
+    </div>
+  </div>
 
   <!-- ==================== TOP NAVIGATION HEADER ==================== -->
   <header class="sticky top-0 z-30 bg-cream-50/95 dark:bg-stone-900/95 backdrop-blur border-b border-cream-200 dark:border-stone-800 px-3 sm:px-5 py-2.5 shadow-sm">
@@ -2530,7 +2718,27 @@
     // =========================================================================
     // 3. INITIALIZATION
     // =========================================================================
+    function initAppSplash() {
+      const splash = document.getElementById('app-splash');
+      if (!splash) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        splash.remove();
+        return;
+      }
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        splash.classList.add('is-done');
+        setTimeout(() => splash.remove(), 60);
+      };
+      setTimeout(() => splash.classList.add('is-opening'), 1100);
+      setTimeout(finish, 1980);
+      splash.addEventListener('pointerdown', finish, { once: true });
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
+      initAppSplash();
       initTheme();
       loadPersistedData();
       populateManageCategoryDropdown();
