@@ -132,6 +132,7 @@
       overflow: hidden;
       background: #0B0B0C;
       touch-action: none;
+      contain: layout paint;
       -webkit-tap-highlight-color: transparent;
     }
 
@@ -142,8 +143,10 @@
       width: 50.5%;
       background: #0B0B0C;
       z-index: 1;
-      transition: transform 0.8s cubic-bezier(0.77, 0, 0.175, 1);
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
       will-change: transform;
+      backface-visibility: hidden;
     }
 
     .app-splash__curtain--left {
@@ -157,11 +160,11 @@
     }
 
     #app-splash.is-opening .app-splash__curtain--left {
-      transform: translateX(-100%);
+      transform: translate3d(-100%, 0, 0);
     }
 
     #app-splash.is-opening .app-splash__curtain--right {
-      transform: translateX(100%);
+      transform: translate3d(100%, 0, 0);
     }
 
     #app-splash.is-done {
@@ -177,12 +180,13 @@
       gap: 14px;
       padding: 24px;
       text-align: center;
-      transition: opacity 0.35s ease, transform 0.4s ease;
+      transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      will-change: opacity, transform;
     }
 
     #app-splash.is-opening .app-splash__brand {
       opacity: 0;
-      transform: scale(0.94);
+      transform: scale(0.96);
     }
 
     .app-splash__mark {
@@ -196,7 +200,7 @@
       box-shadow: 0 18px 45px rgba(0, 0, 0, 0.45);
       opacity: 0;
       transform: scale(0.75) translateY(10px);
-      animation: appSplashMark 0.7s cubic-bezier(0.77, 0, 0.175, 1) 0.05s forwards;
+      animation: appSplashMark 0.65s cubic-bezier(0.16, 1, 0.3, 1) 0.04s forwards;
     }
 
     .app-splash__mark img {
@@ -214,7 +218,7 @@
       color: #F4F4F6;
       opacity: 0;
       transform: translateY(12px);
-      animation: appSplashText 0.55s cubic-bezier(0.77, 0, 0.175, 1) 0.25s forwards;
+      animation: appSplashText 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards;
     }
 
     .app-splash__sub {
@@ -223,7 +227,7 @@
       gap: 10px;
       width: min(240px, 68vw);
       opacity: 0;
-      animation: appSplashFade 0.4s ease 0.4s forwards;
+      animation: appSplashFade 0.35s ease 0.32s forwards;
     }
 
     .app-splash__line {
@@ -232,7 +236,7 @@
       background: linear-gradient(90deg, rgba(201, 168, 77, 0), #C9A84D);
       transform: scaleX(0);
       transform-origin: left;
-      animation: appSplashLine 0.5s cubic-bezier(0.77, 0, 0.175, 1) 0.42s forwards;
+      animation: appSplashLine 0.45s cubic-bezier(0.16, 1, 0.3, 1) 0.35s forwards;
     }
 
     .app-splash__sub .app-splash__line:last-child {
@@ -255,7 +259,7 @@
       background: rgba(255, 255, 255, 0.14);
       overflow: hidden;
       opacity: 0;
-      animation: appSplashFade 0.3s ease 0.5s forwards;
+      animation: appSplashFade 0.25s ease 0.42s forwards;
     }
 
     .app-splash__bar {
@@ -263,7 +267,7 @@
       width: 100%;
       background: #C9A84D;
       transform: translateX(-100%);
-      animation: appSplashBar 1.05s cubic-bezier(0.77, 0, 0.175, 1) 0.5s forwards;
+      animation: appSplashBar 0.62s cubic-bezier(0.16, 1, 0.3, 1) 0.42s forwards;
     }
 
     @keyframes appSplashMark {
@@ -2732,8 +2736,8 @@
         splash.classList.add('is-done');
         setTimeout(() => splash.remove(), 60);
       };
-      setTimeout(() => splash.classList.add('is-opening'), 1100);
-      setTimeout(finish, 1980);
+      setTimeout(() => splash.classList.add('is-opening'), 1040);
+      setTimeout(finish, 1860);
       splash.addEventListener('pointerdown', finish, { once: true });
     }
 
