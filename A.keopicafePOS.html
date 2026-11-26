@@ -106,6 +106,7 @@
     #order-count,
     #cart-subtotal,
     #cart-delivery-fee,
+    #cart-discount-amount,
     #cart-total,
     #checkout-total-display,
     #checkout-change-display,
@@ -644,6 +645,33 @@
           </div>
         </div>
 
+        <!-- Storewide Discount Toggle + Percent -->
+        <div class="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700">
+          <label for="discount-toggle" class="flex items-center gap-2 min-w-0 text-xs font-bold text-espresso-900 dark:text-stone-200 cursor-pointer select-none">
+            <input
+              id="discount-toggle"
+              type="checkbox"
+              onchange="toggleStorewideDiscount()"
+              class="w-4 h-4 rounded accent-[#133824] cursor-pointer shrink-0"
+            />
+            <span class="break-words">🏷️ Discount (all items)</span>
+          </label>
+          <div class="flex items-center gap-1 shrink-0">
+            <input
+              id="discount-percent-input"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              value="20"
+              disabled
+              oninput="handleDiscountPercentInput()"
+              class="w-14 px-2 py-1 rounded-lg bg-cream-100 dark:bg-stone-900 border border-cream-300 dark:border-stone-700 text-xs font-extrabold text-right disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-forest-700 dark:focus:ring-amber-400"
+            />
+            <span class="text-[11px] font-extrabold text-forest-800 dark:text-amber-300">% OFF</span>
+          </div>
+        </div>
+
         <!-- Optional Customer Name (unchecked = no name needed, go straight to payment) -->
         <div class="rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700">
           <label for="customer-name-toggle" class="flex items-center justify-between gap-2 px-3 py-1.5 cursor-pointer select-none">
@@ -681,6 +709,10 @@
           <div class="flex justify-between text-stone-500 dark:text-stone-400 text-xs">
             <span>Subtotal</span>
             <span id="cart-subtotal">₱0.00</span>
+          </div>
+          <div id="cart-discount-row" class="hidden justify-between text-red-600 dark:text-red-400 text-xs font-semibold">
+            <span id="cart-discount-label">Discount (20%)</span>
+            <span id="cart-discount-amount">-₱0.00</span>
           </div>
           <div id="cart-delivery-row" class="hidden justify-between text-forest-700 dark:text-amber-300 text-xs font-semibold">
             <span>Delivery Fee</span>
@@ -2753,7 +2785,8 @@
       PRICE_MIGRATION: 'akeopi_pos_price_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
-      STORE_HOURS: 'akeopi_pos_store_hours_v1'
+      STORE_HOURS: 'akeopi_pos_store_hours_v1',
+      DISCOUNT: 'akeopi_pos_discount_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2771,6 +2804,9 @@
     let orderType = 'Dine-In';
     let deliveryFeeEnabled = false;
     let deliveryFeeAmount = 0;
+    // Storewide discount (applies to every menu item on the ticket)
+    let discountEnabled = false;
+    let discountPercent = 20;
     let selectedPaymentMethod = 'Cash';
     let pendingDeleteOrderIndex = null;
 
@@ -2821,6 +2857,8 @@
       initAppSplash();
       initTheme();
       loadPersistedData();
+      loadDiscountSetting();
+      applyDiscountControlUI();
       populateManageCategoryDropdown();
       renderCategoryTabs();
       renderMenuGrid();
@@ -3095,6 +3133,7 @@
 
     function renderMenuGrid() {
       const grid = document.getElementById('menu-grid');
+      const discountPct = getActiveDiscountPercent();
       const filtered = menuItems.filter((item) => {
         const matchesCat = activeCategory === 'All' || item.category === activeCategory;
         const matchesSearch =
@@ -3108,7 +3147,8 @@
 
       document.getElementById('active-category-title').textContent =
         activeCategory === 'All' ? 'All Menu Items' : activeCategory;
-      document.getElementById('visible-items-count').textContent = `${filtered.length} item${filtered.length === 1 ? '' : 's'}`;
+      document.getElementById('visible-items-count').textContent =
+        `${filtered.length} item${filtered.length === 1 ? '' : 's'}${discountPct > 0 ? ` • ${discountPct}% OFF` : ''}`;
 
       if (filtered.length === 0) {
         grid.innerHTML = `
@@ -3125,12 +3165,25 @@
         const prices = item.variants.map((v) => v.price);
         const minPrice = Math.min(...prices);
         const maxPrice = Math.max(...prices);
-        const priceDisplay = minPrice === maxPrice ? `₱${minPrice}` : `₱${minPrice} – ₱${maxPrice}`;
+        const origPriceDisplay =
+          minPrice === maxPrice
+            ? `₱${formatMenuPrice(minPrice)}`
+            : `₱${formatMenuPrice(minPrice)} – ₱${formatMenuPrice(maxPrice)}`;
+        const saleMin = getDiscountedPrice(minPrice);
+        const saleMax = getDiscountedPrice(maxPrice);
+        const priceDisplay =
+          minPrice === maxPrice
+            ? `₱${formatMenuPrice(saleMin)}`
+            : `₱${formatMenuPrice(saleMin)} – ₱${formatMenuPrice(saleMax)}`;
 
         const variantBadges = item.variants
           .map(
             (v) =>
-              `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cream-100 dark:bg-stone-800 text-espresso-800 dark:text-stone-300 border border-cream-200 dark:border-stone-700">${v.label}: <strong class="ml-1 text-forest-800 dark:text-amber-300">₱${v.price}</strong></span>`
+              `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-semibold bg-cream-100 dark:bg-stone-800 text-espresso-800 dark:text-stone-300 border border-cream-200 dark:border-stone-700">${v.label}: <strong class="ml-1 text-forest-800 dark:text-amber-300">₱${formatMenuPrice(getDiscountedPrice(v.price))}</strong>${
+                discountPct > 0
+                  ? ` <span class="text-[10px] font-semibold text-stone-400 line-through">₱${formatMenuPrice(v.price)}</span>`
+                  : ''
+              }</span>`
           )
           .join('');
 
@@ -3152,7 +3205,10 @@
                 ${
                   isSoldOut
                     ? '<span class="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">SOLD OUT</span>'
-                    : `<span class="text-sm font-extrabold text-forest-800 dark:text-amber-300 shrink-0 whitespace-nowrap">${priceDisplay}</span>`
+                    : `<div class="shrink-0 text-right">
+                        <span class="block text-sm font-extrabold text-forest-800 dark:text-amber-300 whitespace-nowrap">${priceDisplay}</span>
+                        ${discountPct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through whitespace-nowrap">${origPriceDisplay}</span>` : ''}
+                      </div>`
                 }
               </div>
 
@@ -3457,8 +3513,11 @@
     }
 
     function updateModalTotalPrice() {
-      const total = calculateModalUnitTotal() * modalQuantity;
-      document.getElementById('modal-total-price').textContent = `₱${total.toFixed(0)}`;
+      const rawTotal = calculateModalUnitTotal() * modalQuantity;
+      const total = getActiveDiscountPercent() > 0
+        ? Math.round(rawTotal * (100 - getActiveDiscountPercent())) / 100
+        : rawTotal;
+      document.getElementById('modal-total-price').textContent = `₱${Number.isInteger(total) ? total : total.toFixed(2)}`;
     }
 
     function confirmAddItemToCart() {
@@ -3582,18 +3641,108 @@
       return deliveryFeeEnabled ? Math.max(0, deliveryFeeAmount) : 0;
     }
 
+    // ---------- Storewide discount (e.g. 20% OFF for all menu items) ----------
+    function getActiveDiscountPercent() {
+      if (!discountEnabled) return 0;
+      const pct = Number(discountPercent);
+      if (!isFinite(pct) || pct <= 0) return 0;
+      return Math.min(100, pct);
+    }
+
+    function getCartDiscountAmount() {
+      const pct = getActiveDiscountPercent();
+      if (!pct) return 0;
+      return Math.round(getCartSubtotal() * pct) / 100;
+    }
+
+    function getDiscountedPrice(price) {
+      const pct = getActiveDiscountPercent();
+      if (!pct) return price;
+      return Math.round(price * (100 - pct)) / 100;
+    }
+
+    function formatMenuPrice(price) {
+      return Number.isInteger(price) ? String(price) : price.toFixed(2);
+    }
+
+    function applyDiscountControlUI() {
+      const checkbox = document.getElementById('discount-toggle');
+      const input = document.getElementById('discount-percent-input');
+      if (checkbox) checkbox.checked = discountEnabled;
+      if (input) {
+        input.value = discountPercent;
+        input.disabled = !discountEnabled;
+      }
+    }
+
+    function saveDiscountSetting() {
+      try {
+        localStorage.setItem(
+          STORAGE_KEYS.DISCOUNT,
+          JSON.stringify({ enabled: discountEnabled, percent: discountPercent })
+        );
+      } catch (e) {
+        console.error('Failed to save discount setting:', e);
+      }
+    }
+
+    function loadDiscountSetting() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.DISCOUNT);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        discountEnabled = Boolean(saved && saved.enabled);
+        const pct = Number(saved && saved.percent);
+        if (isFinite(pct) && pct > 0 && pct <= 100) discountPercent = pct;
+      } catch (e) {
+        console.error('Failed to load discount setting:', e);
+      }
+    }
+
+    function toggleStorewideDiscount() {
+      const checkbox = document.getElementById('discount-toggle');
+      discountEnabled = Boolean(checkbox && checkbox.checked);
+      if (discountEnabled && !(discountPercent > 0)) discountPercent = 20;
+      applyDiscountControlUI();
+      saveDiscountSetting();
+      renderMenuGrid();
+      renderCart();
+    }
+
+    function handleDiscountPercentInput() {
+      const input = document.getElementById('discount-percent-input');
+      let pct = parseFloat(input.value);
+      if (isNaN(pct) || pct < 0) pct = 0;
+      if (pct > 100) pct = 100;
+      discountPercent = pct;
+      saveDiscountSetting();
+      renderCart();
+      renderMenuGrid();
+    }
+
     function getCartSubtotal() {
       return cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
     }
 
     function getCartTotalAmount() {
-      return getCartSubtotal() + getActiveDeliveryFee();
+      return getCartSubtotal() - getCartDiscountAmount() + getActiveDeliveryFee();
     }
 
     function updateCartTotalsUI() {
       const subtotal = getCartSubtotal();
+      const discountPct = getActiveDiscountPercent();
+      const discountAmount = getCartDiscountAmount();
       const delivFee = getActiveDeliveryFee();
-      const grandTotal = subtotal + delivFee;
+      const grandTotal = subtotal - discountAmount + delivFee;
+
+      const discountRow = document.getElementById('cart-discount-row');
+      if (discountPct > 0 && discountAmount > 0) {
+        discountRow.classList.remove('hidden');
+        discountRow.classList.add('flex');
+      } else {
+        discountRow.classList.add('hidden');
+        discountRow.classList.remove('flex');
+      }
 
       const deliveryRow = document.getElementById('cart-delivery-row');
       if (deliveryFeeEnabled) {
@@ -3605,6 +3754,8 @@
       }
 
       document.getElementById('cart-subtotal').textContent = `₱${subtotal.toFixed(2)}`;
+      document.getElementById('cart-discount-label').textContent = `Discount (${discountPct}%)`;
+      document.getElementById('cart-discount-amount').textContent = `-₱${discountAmount.toFixed(2)}`;
       document.getElementById('cart-delivery-fee').textContent = `₱${delivFee.toFixed(2)}`;
       document.getElementById('cart-total').textContent = `₱${grandTotal.toFixed(2)}`;
     }
@@ -3636,6 +3787,14 @@
 
       container.innerHTML = cart
         .map((item) => {
+          const discountPct = getActiveDiscountPercent();
+          const grossLine = item.unitPrice * item.qty;
+          const netUnitPrice = getDiscountedPrice(item.unitPrice);
+          const netLine = Math.round(grossLine * (100 - discountPct)) / 100;
+          const unitPriceLabel =
+            discountPct > 0
+              ? `₱${formatMenuPrice(netUnitPrice)} each <span class="line-through text-stone-400 font-semibold">₱${formatMenuPrice(item.unitPrice)}</span>`
+              : `₱${formatMenuPrice(item.unitPrice)} each`;
           const flavorBadge =
             item.flavors && item.flavors.length > 0
               ? `<div class="text-[11px] font-semibold text-forest-700 dark:text-amber-300 mt-0.5 break-words">Flavor: ${item.flavors.join(', ')}</div>`
@@ -3656,15 +3815,18 @@
                     ${item.name}
                   </h4>
                   <span class="inline-block max-w-full text-[11px] font-bold text-stone-500 dark:text-stone-400 break-words">
-                    ${item.variantLabel} • ₱${item.unitPrice} each
+                    ${item.variantLabel} • ${unitPriceLabel}
                   </span>
                   ${flavorBadge}
                   ${addonsList}
                   ${noteLine}
                 </div>
-                <span class="font-extrabold text-sm text-forest-800 dark:text-amber-300 shrink-0">
-                  ₱${(item.unitPrice * item.qty).toFixed(0)}
-                </span>
+                <div class="shrink-0 text-right">
+                  <span class="block font-extrabold text-sm text-forest-800 dark:text-amber-300">
+                    ₱${netLine.toFixed(0)}
+                  </span>
+                  ${discountPct > 0 ? `<span class="block text-[10px] font-semibold text-stone-400 line-through">₱${grossLine.toFixed(0)}</span>` : ''}
+                </div>
               </div>
 
               <div class="mt-2.5 pt-2 border-t border-cream-100 dark:border-stone-700/60 flex flex-wrap items-center justify-between gap-y-1.5 gap-x-2">
@@ -3807,11 +3969,14 @@
       toggleMobileCart(false);
 
       const subtotal = getCartSubtotal();
+      const discountPct = getActiveDiscountPercent();
+      const discountAmount = getCartDiscountAmount();
       const delivFee = getActiveDeliveryFee();
-      const total = subtotal + delivFee;
+      const total = subtotal - discountAmount + delivFee;
 
       document.getElementById('checkout-total-display').textContent = `₱${total.toFixed(2)}`;
       const metaParts = [orderType];
+      if (discountPct > 0) metaParts.push(`${discountPct}% OFF`);
       if (delivFee > 0) metaParts.push(`Delivery ₱${delivFee.toFixed(0)}`);
       if (customerName) metaParts.push(customerName);
       document.getElementById('checkout-order-meta').textContent = metaParts.join(' • ');
@@ -3880,8 +4045,10 @@
 
     function finalizeOrder() {
       const subtotal = getCartSubtotal();
+      const discountPct = getActiveDiscountPercent();
+      const discountAmount = getCartDiscountAmount();
       const delivFee = getActiveDeliveryFee();
-      const total = subtotal + delivFee;
+      const total = subtotal - discountAmount + delivFee;
       const errorEl = document.getElementById('checkout-error-msg');
       const customerName = document.getElementById('customer-note-input').value.trim();
 
@@ -3920,6 +4087,8 @@
         orderSource: 'POS',
         items: JSON.parse(JSON.stringify(cart)),
         subtotal,
+        discountPercent: discountPct,
+        discountAmount,
         deliveryFee: delivFee,
         total,
         paymentMethod: selectedPaymentMethod,
@@ -3986,20 +4155,32 @@
 
       const orderSubtotal = typeof order.subtotal === 'number' ? order.subtotal : order.total;
       const orderDeliveryFee = typeof order.deliveryFee === 'number' ? order.deliveryFee : 0;
+      const orderDiscountPercent = typeof order.discountPercent === 'number' ? order.discountPercent : 0;
+      const orderDiscountAmount = typeof order.discountAmount === 'number' ? order.discountAmount : 0;
 
-      const deliveryReceiptLine =
-        orderDeliveryFee > 0
-          ? `
-            <div class="flex justify-between text-[11px]">
-              <span>Subtotal:</span>
-              <span>₱${orderSubtotal.toFixed(2)}</span>
-            </div>
-            <div class="flex justify-between text-[11px]">
-              <span>Delivery Fee:</span>
-              <span>₱${orderDeliveryFee.toFixed(2)}</span>
-            </div>
-          `
-          : '';
+      const breakdownLines = [];
+      if (orderDeliveryFee > 0 || orderDiscountAmount > 0) {
+        breakdownLines.push(`
+          <div class="flex justify-between text-[11px]">
+            <span>Subtotal:</span>
+            <span>₱${orderSubtotal.toFixed(2)}</span>
+          </div>`);
+      }
+      if (orderDiscountAmount > 0) {
+        breakdownLines.push(`
+          <div class="flex justify-between text-[11px]">
+            <span>Discount (${orderDiscountPercent}%):</span>
+            <span>-₱${orderDiscountAmount.toFixed(2)}</span>
+          </div>`);
+      }
+      if (orderDeliveryFee > 0) {
+        breakdownLines.push(`
+          <div class="flex justify-between text-[11px]">
+            <span>Delivery Fee:</span>
+            <span>₱${orderDeliveryFee.toFixed(2)}</span>
+          </div>`);
+      }
+      const deliveryReceiptLine = breakdownLines.join('');
 
       const paymentDetailsHtml =
         order.paymentMethod === 'Cash'
@@ -4146,6 +4327,10 @@
             tx.deliveryFee && tx.deliveryFee > 0
               ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Delivery ₱${tx.deliveryFee.toFixed(0)}</span>`
               : '';
+          const discountBadge =
+            tx.discountAmount && tx.discountAmount > 0
+              ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">${tx.discountPercent || 0}% OFF (−₱${tx.discountAmount.toFixed(0)})</span>`
+              : '';
           const isConfirmingDelete = pendingDeleteOrderIndex === idx;
 
           const actionControls = isConfirmingDelete
@@ -4199,6 +4384,7 @@
                     ${tx.orderType} • ${tx.customerName || tx.customerNote || 'Walk-in Customer'}
                   </span>
                   ${delivBadge}
+                  ${discountBadge}
                   <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                     ${tx.paymentMethod}
                   </span>
@@ -4285,10 +4471,11 @@
         showToast('No transactions to export');
         return;
       }
-      const headers = ['Order No', 'Date Time', 'Order Type', 'Customer Name', 'Payment Method', 'Subtotal (PHP)', 'Delivery Fee (PHP)', 'Total (PHP)', 'Items'];
+      const headers = ['Order No', 'Date Time', 'Order Type', 'Customer Name', 'Payment Method', 'Subtotal (PHP)', 'Discount (PHP)', 'Delivery Fee (PHP)', 'Total (PHP)', 'Items'];
       const rows = transactions.map((tx) => {
         const itemsText = tx.items.map((i) => `${i.qty}x ${i.name} (${i.variantLabel})`).join(' | ');
         const sub = typeof tx.subtotal === 'number' ? tx.subtotal : tx.total;
+        const disc = typeof tx.discountAmount === 'number' ? tx.discountAmount : 0;
         const deliv = typeof tx.deliveryFee === 'number' ? tx.deliveryFee : 0;
         return [
           tx.orderNo,
@@ -4297,6 +4484,7 @@
           `"${tx.customerName || tx.customerNote || 'Walk-in Customer'}"`,
           tx.paymentMethod,
           sub.toFixed(2),
+          disc.toFixed(2),
           deliv.toFixed(2),
           tx.total.toFixed(2),
           `"${itemsText.replace(/"/g, '""')}"`
