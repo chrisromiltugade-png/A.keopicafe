@@ -2682,7 +2682,8 @@
       TRANSACTIONS: 'akeopi_pos_transactions_v1',
       ORDER_COUNTER: 'akeopi_pos_order_counter_v1',
       THEME: 'akeopi_pos_theme_v1',
-      MENU_MIGRATION: 'akeopi_pos_menu_migration_v1'
+      MENU_MIGRATION: 'akeopi_pos_menu_migration_v1',
+      TICKET: 'akeopi_pos_ticket_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2760,6 +2761,10 @@
         document.getElementById('clear-search-btn').classList.toggle('hidden', !searchQuery);
         renderMenuGrid();
       });
+
+      // Keep the active ticket saved while the cashier types the name
+      const customerNoteInput = document.getElementById('customer-note-input');
+      if (customerNoteInput) customerNoteInput.addEventListener('input', saveActiveTicket);
     });
 
     function loadPersistedData() {
@@ -2781,6 +2786,67 @@
         transactions = savedTx ? JSON.parse(savedTx) : [];
       } catch (e) {
         transactions = [];
+      }
+
+      restoreActiveTicket();
+    }
+
+    // Saves the unfinished ticket so a refresh (or an app update reload)
+    // never loses an order that is already being tallied.
+    function saveActiveTicket() {
+      try {
+        const nameInput = document.getElementById('customer-note-input');
+        const typedName = nameInput ? nameInput.value.trim() : '';
+        // Empty ticket = nothing to restore; drop the saved copy instead of
+        // keeping a stale empty snapshot around.
+        if (cart.length === 0 && !typedName && !deliveryFeeEnabled) {
+          localStorage.removeItem(STORAGE_KEYS.TICKET);
+          return;
+        }
+        localStorage.setItem(STORAGE_KEYS.TICKET, JSON.stringify({
+          cart,
+          orderType,
+          customerName: nameInput ? nameInput.value : '',
+          deliveryFeeEnabled,
+          deliveryFeeAmount,
+          savedAt: new Date().toISOString()
+        }));
+      } catch (e) {
+        console.error('Failed to save active ticket:', e);
+      }
+    }
+
+    function restoreActiveTicket() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.TICKET);
+        if (!raw) return;
+        const ticket = JSON.parse(raw);
+        if (!ticket || !Array.isArray(ticket.cart) || ticket.cart.length === 0) return;
+
+        cart = ticket.cart.map((item) => ({
+          ...item,
+          qty: Number(item.qty) || 1,
+          unitPrice: Number(item.unitPrice) || 0
+        }));
+        orderType = ticket.orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In';
+        setOrderType(orderType);
+
+        const nameInput = document.getElementById('customer-note-input');
+        if (nameInput) nameInput.value = ticket.customerName || '';
+
+        deliveryFeeEnabled = Boolean(ticket.deliveryFeeEnabled);
+        deliveryFeeAmount = Number(ticket.deliveryFeeAmount) || 0;
+        const feeCheckbox = document.getElementById('delivery-fee-checkbox');
+        const feeInput = document.getElementById('delivery-fee-input');
+        if (feeCheckbox) feeCheckbox.checked = deliveryFeeEnabled;
+        if (feeInput) {
+          feeInput.disabled = !deliveryFeeEnabled;
+          feeInput.value = deliveryFeeEnabled && deliveryFeeAmount ? deliveryFeeAmount : '';
+        }
+
+        setTimeout(() => showToast('Naibalik ang hindi pa tapos na order'), 2100);
+      } catch (e) {
+        console.error('Failed to restore active ticket:', e);
       }
     }
 
@@ -3373,6 +3439,7 @@
         takeBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition bg-forest-800 text-white shadow-xs';
         dineBtn.className = 'py-1.5 rounded-lg text-xs font-bold transition text-espresso-800 dark:text-stone-300';
       }
+      saveActiveTicket();
     }
 
     function toggleDeliveryFee() {
@@ -3389,6 +3456,7 @@
         input.value = '';
         updateCartTotalsUI();
       }
+      saveActiveTicket();
     }
 
     function handleDeliveryFeeInput() {
@@ -3401,6 +3469,7 @@
       const parsed = parseFloat(input.value);
       deliveryFeeAmount = !isNaN(parsed) && parsed > 0 ? parsed : 0;
       updateCartTotalsUI();
+      saveActiveTicket();
     }
 
     function getActiveDeliveryFee() {
@@ -3441,6 +3510,7 @@
       document.getElementById('cart-item-badge').textContent = totalQty;
       document.getElementById('order-count').textContent = totalQty;
       updateCartTotalsUI();
+      saveActiveTicket();
 
       const checkoutBtn = document.getElementById('checkout-btn');
       checkoutBtn.disabled = cart.length === 0;
@@ -3569,6 +3639,7 @@
       cart = [];
       resetDeliveryFeeControl();
       document.getElementById('customer-note-input').value = '';
+      try { localStorage.removeItem(STORAGE_KEYS.TICKET); } catch (e) {}
       renderCart();
       showToast('Ticket cleared');
     }
@@ -3735,6 +3806,7 @@
       cart = [];
       resetDeliveryFeeControl();
       document.getElementById('customer-note-input').value = '';
+      try { localStorage.removeItem(STORAGE_KEYS.TICKET); } catch (e) {}
       renderCart();
 
       closeCheckoutModal();
