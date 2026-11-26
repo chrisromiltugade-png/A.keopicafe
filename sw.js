@@ -1,4 +1,4 @@
-const CACHE_NAME = 'akeopi-pos-v32';
+const CACHE_NAME = 'akeopi-pos-v33';
 const APP_SHELL = [
   './A.keopicafePOS.html',
   './customer.html',

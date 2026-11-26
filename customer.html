@@ -28,7 +28,7 @@
 
     <div id="store-hours-banner" class="mb-3 rounded-2xl border px-4 py-3 text-center">
       <p id="store-status" class="text-sm font-extrabold"></p>
-      <p class="mt-0.5 text-xs text-stone-500">Open daily: 10:00 AM – 10:00 PM</p>
+      <p id="store-hours-text" class="mt-0.5 text-xs text-stone-500">Open daily: 10:00 AM – 10:00 PM</p>
       <a
         href="https://www.google.com/maps/search/?api=1&query=Beside%20RAMDC%20Concordia%20along%20highway%2C%20Bolinao%2C%20Pangasinan%2C%20Philippines%202406"
         target="_blank"
@@ -237,6 +237,24 @@
     let selectedAddons = new Set();
     let activeCategory = 'All';
     let menuSearch = '';
+    let storeHours = { open: '10:00', close: '22:00' };
+
+    function isValidTimeValue(value) {
+      return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+    }
+
+    function storeHoursToMinutes(value) {
+      const [hour, minute] = String(value).split(':').map(Number);
+      return hour * 60 + minute;
+    }
+
+    function formatStoreTime(value) {
+      if (!isValidTimeValue(value)) return '';
+      const [hour, minute] = value.split(':').map(Number);
+      const suffix = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`;
+    }
 
     function isStoreOpen() {
       const parts = new Intl.DateTimeFormat('en-PH', {
@@ -247,19 +265,25 @@
       }).formatToParts(new Date());
       const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
       const minutesNow = Number(values.hour) * 60 + Number(values.minute);
-      return minutesNow >= 10 * 60 && minutesNow < 22 * 60;
+      const openMinutes = storeHoursToMinutes(storeHours.open);
+      const closeMinutes = storeHoursToMinutes(storeHours.close);
+      if (openMinutes === closeMinutes) return true;
+      if (closeMinutes > openMinutes) return minutesNow >= openMinutes && minutesNow < closeMinutes;
+      return minutesNow >= openMinutes || minutesNow < closeMinutes;
     }
 
     function updateStoreStatus() {
       const open = isStoreOpen();
       const banner = document.getElementById('store-hours-banner');
       const status = document.getElementById('store-status');
+      const hoursText = document.getElementById('store-hours-text');
       const placeButton = document.getElementById('place-order');
 
       banner.className = open
         ? 'mb-3 rounded-2xl border border-[#D8B55A] bg-[#FFF9E8] px-4 py-3 text-center text-[#7A5A12]'
           : 'mb-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-center text-red-700';
       status.textContent = open ? '🟢 Store is Open — Accepting Orders' : '🔴 Store is Closed — Ordering Paused';
+      if (hoursText) hoursText.textContent = `Open daily: ${formatStoreTime(storeHours.open)} – ${formatStoreTime(storeHours.close)}`;
       placeButton.disabled = !open || cart.length === 0;
     }
 
@@ -267,7 +291,12 @@
       if (!user) return;
       db.collection('settings').doc('customerMenu').onSnapshot((snapshot) => {
         if (!snapshot.exists) return;
-        const remoteItems = snapshot.data().items;
+        const data = snapshot.data() || {};
+        if (isValidTimeValue(data.storeOpen) && isValidTimeValue(data.storeClose)) {
+          storeHours = { open: data.storeOpen, close: data.storeClose };
+          updateStoreStatus();
+        }
+        const remoteItems = data.items;
         if (!Array.isArray(remoteItems)) return;
 
         menuItems = ensurePremiumCookies(remoteItems);
@@ -475,7 +504,7 @@
 
     async function placeOrder() {
       if (!isStoreOpen()) {
-        showToast('Store is closed. Ordering resumes at 10:00 AM.');
+        showToast(`Store is closed. Ordering resumes at ${formatStoreTime(storeHours.open)}.`);
         updateStoreStatus();
         return;
       }
@@ -529,6 +558,8 @@
 
     renderMenu();
     renderCart();
+    updateStoreStatus();
+    setInterval(updateStoreStatus, 30000);
   </script>
 </body>
 </html>

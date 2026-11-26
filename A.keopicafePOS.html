@@ -437,6 +437,20 @@
           <span class="hidden md:inline">Menu</span>
         </button>
 
+        <!-- Store Hours Button -->
+        <button
+          id="store-hours-btn"
+          onclick="openStoreHoursModal()"
+          class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
+          title="Set store opening and closing time"
+        >
+          <svg class="w-4 h-4 text-forest-700 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" />
+          </svg>
+          <span class="hidden md:inline">Hours</span>
+        </button>
+
         <!-- Light / Dark Theme Toggle -->
         <button
           id="theme-toggle-btn"
@@ -1114,6 +1128,48 @@
 
       <div id="manage-menu-list" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2">
         <!-- Menu items editor rows injected dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== STORE HOURS MODAL ==================== -->
+  <div id="store-hours-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs" onclick="if(event.target===this)closeStoreHoursModal()">
+    <div class="w-full max-w-sm rounded-3xl border border-cream-200 bg-cream-50 shadow-2xl dark:border-stone-800 dark:bg-stone-900">
+      <div class="flex items-start justify-between gap-2 border-b border-cream-200 px-4 py-3 dark:border-stone-800">
+        <div class="min-w-0">
+          <h3 class="text-base font-extrabold text-forest-800 dark:text-amber-200">Store Hours</h3>
+          <p class="text-[11px] text-stone-500 break-words">Kailan bukas ang customer ordering</p>
+        </div>
+        <button onclick="closeStoreHoursModal()" class="shrink-0 rounded-lg p-1.5 text-stone-500 hover:bg-stone-100 dark:hover:bg-stone-800" aria-label="Close store hours">
+          <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="space-y-3 p-4">
+        <div id="store-hours-preview" class="rounded-xl px-3 py-2 text-center text-xs font-bold"></div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <label class="min-w-0">
+            <span class="mb-1 block text-[11px] font-bold uppercase text-stone-500">Opening</span>
+            <input id="store-open-time" type="time" value="10:00" oninput="updateStoreHoursPreview()"
+              class="w-full min-w-0 rounded-xl border border-cream-300 bg-white px-3 py-2 text-sm font-semibold dark:border-stone-700 dark:bg-stone-800" />
+          </label>
+          <label class="min-w-0">
+            <span class="mb-1 block text-[11px] font-bold uppercase text-stone-500">Closing</span>
+            <input id="store-close-time" type="time" value="22:00" oninput="updateStoreHoursPreview()"
+              class="w-full min-w-0 rounded-xl border border-cream-300 bg-white px-3 py-2 text-sm font-semibold dark:border-stone-700 dark:bg-stone-800" />
+          </label>
+        </div>
+
+        <p id="store-hours-range-text" class="text-center text-xs font-semibold text-stone-500 break-words"></p>
+        <p class="text-[11px] leading-relaxed text-stone-500 break-words">Sinusunod ito ng customer ordering page — sarado ang ordering sa labas ng oras at bukas ulit sa opening. Kung lagpas hatinggabi ang closing (hal. 10:00 AM – 1:00 AM), awtomatikong sinusuportahan iyon.</p>
+      </div>
+
+      <div class="flex items-center justify-between gap-2 border-t border-cream-200 px-4 py-3 dark:border-stone-800">
+        <button onclick="resetStoreHoursInputs()" class="text-[11px] font-bold text-stone-500 underline hover:text-stone-700 dark:hover:text-stone-300">Reset (10 AM – 10 PM)</button>
+        <button onclick="saveStoreHours()" class="rounded-xl bg-forest-800 px-4 py-2 text-sm font-bold text-white transition hover:bg-forest-700 dark:bg-amber-500 dark:text-stone-950 dark:hover:bg-amber-400">Save hours</button>
       </div>
     </div>
   </div>
@@ -2684,7 +2740,8 @@
       THEME: 'akeopi_pos_theme_v1',
       MENU_MIGRATION: 'akeopi_pos_menu_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
-      INCOMING_DONE: 'akeopi_pos_incoming_done_v1'
+      INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
+      STORE_HOURS: 'akeopi_pos_store_hours_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2711,6 +2768,7 @@
     let modalQuantity = 1;
     let pendingCustomerOrders = [];
     let handledIncomingOrders = [];
+    let storeHours = { open: '10:00', close: '22:00' };
     let firebaseDb = null;
 
     const firebaseConfig = {
@@ -2792,6 +2850,7 @@
 
       restoreActiveTicket();
       restoreHandledIncomingOrders();
+      restoreStoreHours();
       renderPendingCustomerOrders();
     }
 
@@ -4416,6 +4475,138 @@
     }
 
     // =========================================================================
+    // 11b. STORE HOURS (OPENING / CLOSING TIME)
+    // =========================================================================
+    const DEFAULT_STORE_HOURS = { open: '10:00', close: '22:00' };
+
+    function isValidTimeValue(value) {
+      return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+    }
+
+    function restoreStoreHours() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.STORE_HOURS);
+        const saved = raw ? JSON.parse(raw) : null;
+        if (saved && isValidTimeValue(saved.open) && isValidTimeValue(saved.close)) {
+          storeHours = { open: saved.open, close: saved.close };
+        } else {
+          storeHours = { ...DEFAULT_STORE_HOURS };
+        }
+      } catch (e) {
+        console.error('Failed to restore store hours:', e);
+        storeHours = { ...DEFAULT_STORE_HOURS };
+      }
+    }
+
+    function storeHoursToMinutes(value) {
+      const [hour, minute] = String(value).split(':').map(Number);
+      return hour * 60 + minute;
+    }
+
+    function formatStoreTime(value) {
+      if (!isValidTimeValue(value)) return '';
+      const [hour, minute] = value.split(':').map(Number);
+      const suffix = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+      return `${hour12}:${String(minute).padStart(2, '0')} ${suffix}`;
+    }
+
+    function getManilaMinutesNow() {
+      const parts = new Intl.DateTimeFormat('en-PH', {
+        timeZone: 'Asia/Manila',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+      }).formatToParts(new Date());
+      const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+      return Number(values.hour) * 60 + Number(values.minute);
+    }
+
+    // Supports overnight closing time (e.g. 10:00 AM – 1:00 AM).
+    function isWithinStoreHours(openValue, closeValue) {
+      const openMinutes = storeHoursToMinutes(openValue);
+      const closeMinutes = storeHoursToMinutes(closeValue);
+      const nowMinutes = getManilaMinutesNow();
+      if (openMinutes === closeMinutes) return true;
+      if (closeMinutes > openMinutes) return nowMinutes >= openMinutes && nowMinutes < closeMinutes;
+      return nowMinutes >= openMinutes || nowMinutes < closeMinutes;
+    }
+
+    function updateStoreHoursPreview() {
+      const openInput = document.getElementById('store-open-time');
+      const closeInput = document.getElementById('store-close-time');
+      const preview = document.getElementById('store-hours-preview');
+      const rangeText = document.getElementById('store-hours-range-text');
+      if (!openInput || !closeInput || !preview) return;
+
+      const open = isValidTimeValue(openInput.value) ? openInput.value : storeHours.open;
+      const close = isValidTimeValue(closeInput.value) ? closeInput.value : storeHours.close;
+      if (rangeText) rangeText.textContent = `Open daily: ${formatStoreTime(open)} – ${formatStoreTime(close)}`;
+
+      const openNow = isWithinStoreHours(open, close);
+      preview.textContent = openNow ? '🟢 Open ngayon — tumatanggap ng order' : '🔴 Sarado ngayon — pause ang ordering';
+      preview.className = openNow
+        ? 'rounded-xl border border-forest-700/30 bg-forest-800/10 px-3 py-2 text-center text-xs font-bold text-forest-800 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300'
+        : 'rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-bold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300';
+    }
+
+    function openStoreHoursModal() {
+      const openInput = document.getElementById('store-open-time');
+      const closeInput = document.getElementById('store-close-time');
+      if (openInput) openInput.value = storeHours.open;
+      if (closeInput) closeInput.value = storeHours.close;
+      updateStoreHoursPreview();
+      const modal = document.getElementById('store-hours-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closeStoreHoursModal() {
+      const modal = document.getElementById('store-hours-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function saveStoreHours() {
+      const open = document.getElementById('store-open-time').value;
+      const close = document.getElementById('store-close-time').value;
+      if (!isValidTimeValue(open) || !isValidTimeValue(close)) {
+        showToast('Pumili ng tamang opening at closing time');
+        return;
+      }
+      storeHours = { open, close };
+      try {
+        localStorage.setItem(STORAGE_KEYS.STORE_HOURS, JSON.stringify({ open, close }));
+      } catch (e) {
+        console.error('Failed to save store hours:', e);
+      }
+      syncStoreHoursToFirebase();
+      closeStoreHoursModal();
+      showToast(`Store hours: ${formatStoreTime(open)} – ${formatStoreTime(close)}`);
+    }
+
+    function resetStoreHoursInputs() {
+      document.getElementById('store-open-time').value = DEFAULT_STORE_HOURS.open;
+      document.getElementById('store-close-time').value = DEFAULT_STORE_HOURS.close;
+      updateStoreHoursPreview();
+    }
+
+    function syncStoreHoursToFirebase() {
+      if (!firebaseDb) return;
+      // Hours live inside the existing settings/customerMenu document so the
+      // current Firestore rules keep working and the customer page can read
+      // them with the menu sync it already listens to.
+      firebaseDb.collection('settings').doc('customerMenu').set({
+        storeOpen: storeHours.open,
+        storeClose: storeHours.close,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch((error) => console.error('Failed to sync store hours:', error));
+    }
+
+    // =========================================================================
     // 12. FIREBASE CUSTOMER ORDER NOTIFICATIONS
     // =========================================================================
     function syncMenuToFirebase() {
@@ -4431,8 +4622,10 @@
       if (!firebaseDb) return;
       firebaseDb.collection('settings').doc('customerMenu').set({
         items: JSON.parse(JSON.stringify(menuItems)),
+        storeOpen: storeHours.open,
+        storeClose: storeHours.close,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }).catch((error) => console.error('Failed to sync customer menu:', error));
+      }, { merge: true }).catch((error) => console.error('Failed to sync customer menu:', error));
     }
 
     function initFirebaseCustomerOrders() {
@@ -4443,6 +4636,7 @@
         firebase.auth(app).onAuthStateChanged((user) => {
           if (user) {
             syncMenuToFirebase();
+            syncStoreHoursToFirebase();
           } else {
             firebase.auth(app).signInAnonymously().catch((error) => {
               console.error('Anonymous POS authentication failed:', error);
