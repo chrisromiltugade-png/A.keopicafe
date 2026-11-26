@@ -1329,7 +1329,7 @@
           { label: 'Hot 12oz', price: 95 },
           { label: 'Hot 16oz', price: 115 },
           { label: 'Iced 16oz', price: 95 },
-          { label: 'Iced 22oz', price: 110 }
+          { label: 'Iced 22oz', price: 115 }
         ],
         addons: COFFEE_DRINK_ADDONS,
         available: true
@@ -2750,6 +2750,7 @@
       ORDER_COUNTER: 'akeopi_pos_order_counter_v1',
       THEME: 'akeopi_pos_theme_v1',
       MENU_MIGRATION: 'akeopi_pos_menu_migration_v1',
+      PRICE_MIGRATION: 'akeopi_pos_price_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
       STORE_HOURS: 'akeopi_pos_store_hours_v1'
@@ -2758,6 +2759,9 @@
     // Bump this ID when newly added default items must reach installs
     // that already have a saved menu in localStorage.
     const MENU_MIGRATION_ID = 'premium-cookies-dubai-2026-11';
+    // Bump this ID when an existing default price must be corrected on
+    // installs that already saved a menu (localStorage + Firestore).
+    const PRICE_MIGRATION_ID = 'caramel-macchiato-iced22-115-2026-11';
 
     let menuItems = [];
     let transactions = [];
@@ -2852,6 +2856,7 @@
         menuItems = JSON.parse(JSON.stringify(DEFAULT_MENU_ITEMS));
       }
 
+      applyPriceMigrations();
       try {
         const savedTx = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
         transactions = savedTx ? JSON.parse(savedTx) : [];
@@ -2946,6 +2951,27 @@
         localStorage.setItem(STORAGE_KEYS.MENU_MIGRATION, MENU_MIGRATION_ID);
       } catch (e) {
         console.error('Menu migration failed:', e);
+      }
+    }
+
+    // Price corrections for menus already saved on devices. Runs once per ID,
+    // then re-syncs so the customer page shows the updated price too.
+    function applyPriceMigrations() {
+      try {
+        if (localStorage.getItem(STORAGE_KEYS.PRICE_MIGRATION) === PRICE_MIGRATION_ID) return;
+        let changed = false;
+        const caramel = menuItems.find((item) => item.id === 'cc-caramelmacchiato');
+        if (caramel && Array.isArray(caramel.variants)) {
+          const iced22 = caramel.variants.find((variant) => variant.label === 'Iced 22oz');
+          if (iced22 && Number(iced22.price) !== 115) {
+            iced22.price = 115;
+            changed = true;
+          }
+        }
+        if (changed) saveMenuToStorage();
+        localStorage.setItem(STORAGE_KEYS.PRICE_MIGRATION, PRICE_MIGRATION_ID);
+      } catch (e) {
+        console.error('Price migration failed:', e);
       }
     }
 
