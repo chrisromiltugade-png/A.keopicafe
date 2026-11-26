@@ -809,6 +809,20 @@
             placeholder="e.g., Less ice, 50% sugar, extra spicy, no veggies..."
             class="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700 dark:focus:ring-amber-400"
           />
+          <label
+            for="modal-senior-pwd"
+            class="mt-2.5 flex items-start gap-2.5 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 cursor-pointer select-none"
+          >
+            <input
+              id="modal-senior-pwd"
+              type="checkbox"
+              class="mt-0.5 w-4 h-4 shrink-0 rounded accent-[#133824] cursor-pointer"
+            />
+            <span class="min-w-0 text-xs sm:text-sm font-bold text-espresso-900 dark:text-stone-100 leading-snug break-words">
+              Senior / PWD
+              <span class="block text-[11px] font-semibold text-stone-500 dark:text-stone-400">Check only if the customer is a Senior Citizen or PWD. This is a note only — it does not change the total.</span>
+            </span>
+          </label>
         </div>
       </div>
 
@@ -1364,7 +1378,6 @@
           { label: 'Iced 22oz', price: 115 }
         ],
         addons: COFFEE_DRINK_ADDONS,
-        discountPercent: 20,
         available: true
       },
       {
@@ -2797,9 +2810,9 @@
     // Bump this ID when an existing default price must be corrected on
     // installs that already saved a menu (localStorage + Firestore).
     const PRICE_MIGRATION_ID = 'caramel-macchiato-iced22-115-2026-11';
-    // Item-level discounts are stored on the menu item (discountPercent).
-    // Bump this ID when a discount must be applied to menus already saved.
-    const ITEM_DISCOUNT_MIGRATION_ID = 'caramel-macchiato-20pct-2026-11';
+    // The old automatic Caramel Macchiato promo must be removed from saved
+    // menus; Senior / PWD is now a kitchen-note checkbox only (no auto discount).
+    const ITEM_DISCOUNT_MIGRATION_ID = 'senior-pwd-checkbox-2026-11';
 
     let menuItems = [];
     let transactions = [];
@@ -2950,7 +2963,10 @@
         cart = ticket.cart.map((item) => ({
           ...item,
           qty: Number(item.qty) || 1,
-          unitPrice: Number(item.unitPrice) || 0
+          unitPrice: Number(item.unitPrice) || 0,
+          // Drop item-level discounts left by the old Caramel promo so the
+          // current order is not discounted automatically anymore.
+          discountPercent: 0
         }));
         orderType = ticket.orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In';
         setOrderType(orderType);
@@ -3019,17 +3035,18 @@
       }
     }
 
-    // Item discount corrections for menus already saved on devices. Runs once
-    // per ID, then re-syncs so the customer page shows the same sale price.
+    // Removes automatic item discounts from menus already saved on devices.
+    // The 20% off is now a manual Senior / PWD checkbox in the item modal.
     function applyItemDiscountMigrations() {
       try {
         if (localStorage.getItem(STORAGE_KEYS.ITEM_DISCOUNT_MIGRATION) === ITEM_DISCOUNT_MIGRATION_ID) return;
         let changed = false;
-        const caramel = menuItems.find((item) => item.id === 'cc-caramelmacchiato');
-        if (caramel && Number(caramel.discountPercent) !== 20) {
-          caramel.discountPercent = 20;
-          changed = true;
-        }
+        menuItems.forEach((item) => {
+          if (item && Object.prototype.hasOwnProperty.call(item, 'discountPercent')) {
+            delete item.discountPercent;
+            changed = true;
+          }
+        });
         if (changed) saveMenuToStorage();
         localStorage.setItem(STORAGE_KEYS.ITEM_DISCOUNT_MIGRATION, ITEM_DISCOUNT_MIGRATION_ID);
       } catch (e) {
@@ -3277,7 +3294,7 @@
       selectedAddonIndices = new Set();
       modalQuantity = 1;
 
-      populateItemModalUI('');
+      populateItemModalUI('', false);
       showItemModal();
     }
 
@@ -3319,11 +3336,11 @@
 
       modalQuantity = cartItem.qty || 1;
 
-      populateItemModalUI(cartItem.note || '');
+      populateItemModalUI(cartItem.note || '', cartItem.seniorPwd === true);
       showItemModal();
     }
 
-    function populateItemModalUI(initialNote) {
+    function populateItemModalUI(initialNote, seniorPwdChecked) {
       const item = currentModalItem;
       document.getElementById('modal-item-category').textContent = item.subType
         ? `${item.category} — ${item.subType}`
@@ -3339,6 +3356,8 @@
       }
 
       document.getElementById('modal-item-note').value = initialNote;
+      const seniorPwdCheckbox = document.getElementById('modal-senior-pwd');
+      if (seniorPwdCheckbox) seniorPwdCheckbox.checked = Boolean(seniorPwdChecked);
       document.getElementById('modal-qty-display').textContent = modalQuantity;
       document.getElementById('modal-add-btn-label').textContent = editingCartId ? 'Update Order' : 'Add to Order';
 
@@ -3564,10 +3583,11 @@
       const chosenAddons = Array.from(selectedAddonIndices).map((idx) => currentModalItem.addons[idx]);
       const note = document.getElementById('modal-item-note').value.trim();
       const unitPrice = calculateModalUnitTotal();
+      const seniorPwd = isSeniorPwdChecked();
 
       const addonNames = chosenAddons.map((a) => a.name).sort().join('|');
       const flavorStr = selectedFlavors.join(', ');
-      const signature = `${currentModalItem.id}::${variant.label}::${flavorStr}::${addonNames}::${note}`;
+      const signature = `${currentModalItem.id}::${variant.label}::${flavorStr}::${addonNames}::${note}::${seniorPwd ? 'senior' : 'std'}`;
 
       const itemName = currentModalItem.name;
       const qtyToSave = modalQuantity;
@@ -3595,7 +3615,8 @@
               addons: chosenAddons,
               note,
               unitPrice,
-              discountPercent: getItemDiscountPercent(currentModalItem),
+              discountPercent: 0,
+              seniorPwd,
               qty: qtyToSave
             };
           }
@@ -3617,7 +3638,8 @@
             addons: chosenAddons,
             note,
             unitPrice,
-            discountPercent: getItemDiscountPercent(currentModalItem),
+            discountPercent: 0,
+            seniorPwd,
             qty: qtyToSave
           });
         }
@@ -3694,6 +3716,11 @@
       const pct = Number(item.discountPercent);
       if (!isFinite(pct) || pct <= 0) return 0;
       return Math.min(100, pct);
+    }
+
+    function isSeniorPwdChecked() {
+      const checkbox = document.getElementById('modal-senior-pwd');
+      return Boolean(checkbox && checkbox.checked);
     }
 
     // Item discount wins; otherwise the storewide discount applies.
@@ -3872,6 +3899,10 @@
             linePct > 0
               ? `<span class="inline-block mt-0.5 px-1.5 py-0.5 rounded-md bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300 text-[9px] font-extrabold whitespace-nowrap">${linePct}% OFF</span>`
               : '';
+          const seniorPwdBadge =
+            item.seniorPwd
+              ? `<span class="inline-block mt-0.5 mr-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 text-[9px] font-extrabold whitespace-nowrap">Senior/PWD</span>`
+              : '';
           const flavorBadge =
             item.flavors && item.flavors.length > 0
               ? `<div class="text-[11px] font-semibold text-forest-700 dark:text-amber-300 mt-0.5 break-words">Flavor: ${item.flavors.join(', ')}</div>`
@@ -3897,7 +3928,7 @@
                   ${flavorBadge}
                   ${addonsList}
                   ${noteLine}
-                  ${lineDiscountBadge}
+                  ${seniorPwdBadge}${lineDiscountBadge}
                 </div>
                 <div class="shrink-0 text-right">
                   <span class="block font-extrabold text-sm text-forest-800 dark:text-amber-300">
@@ -4053,7 +4084,9 @@
       const total = subtotal - discountAmount + delivFee;
 
       document.getElementById('checkout-total-display').textContent = `₱${total.toFixed(2)}`;
+      const hasSeniorPwd = cart.some((item) => item && item.seniorPwd);
       const metaParts = [orderType];
+      if (hasSeniorPwd) metaParts.push('Senior/PWD');
       if (discountAmount > 0) metaParts.push(discountPct > 0 ? `${discountPct}% OFF` : 'Item discount');
       if (delivFee > 0) metaParts.push(`Delivery ₱${delivFee.toFixed(0)}`);
       if (customerName) metaParts.push(customerName);
@@ -4166,6 +4199,7 @@
         items: JSON.parse(JSON.stringify(cart)),
         subtotal,
         discountPercent: discountPct,
+        seniorPwd: cart.some((item) => item && item.seniorPwd),
         itemDiscount: cart.some((item) => {
           const linePct = getCartLineDiscountPercent(item);
           return linePct > 0 && linePct !== discountPct;
@@ -4221,6 +4255,9 @@
           }
           if (item.note) {
             subLines.push(`  Note: ${item.note}`);
+          }
+          if (item.seniorPwd) {
+            subLines.push('  Senior/PWD');
           }
 
           return `
@@ -4414,6 +4451,10 @@
             tx.deliveryFee && tx.deliveryFee > 0
               ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Delivery ₱${tx.deliveryFee.toFixed(0)}</span>`
               : '';
+          const seniorPwdBadge =
+            tx.seniorPwd
+              ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">Senior/PWD</span>`
+              : '';
           const discountBadge =
             tx.discountAmount && tx.discountAmount > 0
               ? `<span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">${tx.itemDiscount ? 'Discounts' : tx.discountPercent > 0 ? `${tx.discountPercent}% OFF` : 'Item discount'} (−₱${tx.discountAmount.toFixed(0)})</span>`
@@ -4471,6 +4512,7 @@
                     ${tx.orderType} • ${tx.customerName || tx.customerNote || 'Walk-in Customer'}
                   </span>
                   ${delivBadge}
+                  ${seniorPwdBadge}
                   ${discountBadge}
                   <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
                     ${tx.paymentMethod}
