@@ -40,12 +40,8 @@
     </div>
 
     <section class="mb-3 rounded-2xl bg-white p-3 shadow">
-      <label class="flex cursor-pointer items-start gap-2.5 rounded-xl border border-stone-300 px-3 py-2.5 text-sm font-bold">
-        <input id="name-toggle" type="checkbox" onchange="toggleNameField(this.checked)" class="mt-0.5 h-4 w-4 shrink-0 accent-[#C9A84D]">
-        <span class="min-w-0 break-words">Add my name <span class="font-normal text-stone-500">(optional — skip to go straight to payment)</span></span>
-      </label>
-      <div id="name-field-wrap" class="mt-2 hidden">
-        <label class="block text-xs font-extrabold" for="customer-name">Customer Name
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="block text-xs font-extrabold">Customer Name *
           <input id="customer-name" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-[#C9A84D] focus:ring-2 focus:ring-[#C9A84D]/30" placeholder="Enter your name" autocomplete="name">
         </label>
       </div>
@@ -506,27 +502,15 @@
       confirmation.classList.remove('flex');
     }
 
-    function toggleNameField(show) {
-      const wrap = document.getElementById('name-field-wrap');
-      const input = document.getElementById('customer-name');
-      wrap.classList.toggle('hidden', !show);
-      if (show) {
-        input.focus();
-      } else {
-        input.value = '';
-      }
-    }
-
     async function placeOrder() {
       if (!isStoreOpen()) {
         showToast(`Store is closed. Ordering resumes at ${formatStoreTime(storeHours.open)}.`);
         updateStoreStatus();
         return;
       }
-      const wantsName = document.getElementById('name-toggle').checked;
       const name = document.getElementById('customer-name').value.trim();
-      if (wantsName && !name) {
-        showToast('Type your name or uncheck “Add my name”');
+      if (!name) {
+        showToast('Please enter your name');
         document.getElementById('customer-name').focus();
         return;
       }
@@ -538,7 +522,7 @@
       try {
         await db.collection('orders').add({
           orderCode,
-          customerName: wantsName ? name : '',
+          customerName: name,
           customerContact: '',
           customerAddress: '',
           fulfillment: orderType,
@@ -554,8 +538,7 @@
         });
         cart = [];
         renderCart();
-        document.getElementById('name-toggle').checked = false;
-        toggleNameField(false);
+        document.getElementById('customer-name').value = '';
         document.getElementById('payment-method').value = '';
         document.getElementById('order-dinein').checked = true;
         document.getElementById('order-takeout').checked = false;
