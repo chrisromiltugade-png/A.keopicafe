@@ -1093,7 +1093,7 @@
       <div class="px-5 py-4 border-b border-cream-200 dark:border-stone-800 flex items-center justify-between bg-white dark:bg-stone-900">
         <div class="min-w-0">
           <h3 class="text-lg font-extrabold text-forest-800 dark:text-amber-200">Sales Records</h3>
-          <p class="text-xs text-stone-500 dark:text-stone-400">Weekly & monthly sales — saved locally</p>
+          <p class="text-xs text-stone-500 dark:text-stone-400 break-words">Weekly & monthly sales — kept even when Orders history is cleared</p>
         </div>
         <button
           onclick="closeSalesRecordsModal()"
@@ -1114,8 +1114,16 @@
         <!-- Weekly / monthly records injected dynamically -->
       </div>
 
-      <div class="p-4 border-t border-cream-200 dark:border-stone-800 bg-white dark:bg-stone-900">
-        <p id="sales-records-footer" class="text-[11px] font-semibold text-stone-500 dark:text-stone-400 break-words">—</p>
+      <div class="p-4 border-t border-cream-200 dark:border-stone-800 bg-white dark:bg-stone-900 flex flex-wrap items-center justify-between gap-2">
+        <p id="sales-records-footer" class="text-[11px] font-semibold text-stone-500 dark:text-stone-400 break-words min-w-0">—</p>
+        <div id="clear-records-confirm-group" class="flex flex-wrap items-center gap-2">
+          <button
+            onclick="promptClearSalesRecords()"
+            class="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-[11px] font-bold hover:bg-red-100 transition"
+          >
+            Clear Records
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -2925,7 +2933,8 @@
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
       STORE_HOURS: 'akeopi_pos_store_hours_v1',
-      ADDON_GROUPS: 'akeopi_pos_addon_groups_v1'
+      ADDON_GROUPS: 'akeopi_pos_addon_groups_v1',
+      SALES_RECORDS: 'akeopi_pos_sales_records_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2944,6 +2953,9 @@
 
     let menuItems = [];
     let transactions = [];
+    // Weekly/monthly sales records live in their own ledger (separate from
+    // the transaction history) so "Clear History" never erases them.
+    let salesRecords = null;
     let cart = [];
     let activeCategory = 'All';
     let searchQuery = '';
@@ -3048,6 +3060,7 @@
         transactions = [];
       }
 
+      loadSalesRecords();
       restoreActiveTicket();
       restoreHandledIncomingOrders();
       restoreStoreHours();
@@ -4282,6 +4295,8 @@
 
       transactions.unshift(orderRecord);
       saveTransactionsToStorage();
+      applyTransactionToSalesRecords(orderRecord, 1);
+      saveSalesRecordsToStorage();
       updateHeaderSalesBadge();
 
       // Clear active ticket & delivery fee state
@@ -4501,19 +4516,84 @@
       };
     }
 
-    function buildHistoryBuckets(txs, mode) {
-      const map = new Map();
-      txs.forEach((tx) => {
-        const bucket = getHistoryBucket(tx.timestamp, mode);
-        let entry = map.get(bucket.key);
-        if (!entry) {
-          entry = { ...bucket, total: 0, orders: 0 };
-          map.set(bucket.key, entry);
+    // ---- Persistent weekly/monthly ledger ----
+    // Records are stored separately from the transaction history so clearing
+    // (or deleting) sales logs in Orders never removes the weekly/monthly
+    // records. Only "Clear Records" resets this ledger.
+    function emptySalesRecords() {
+      return { weekly: {}, monthly: {} };
+    }
+
+    function saveSalesRecordsToStorage() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.SALES_RECORDS, JSON.stringify(salesRecords || emptySalesRecords()));
+      } catch (e) {
+        console.error('Failed to save sales records:', e);
+      }
+    }
+
+    function loadSalesRecords() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.SALES_RECORDS);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          salesRecords = {
+            weekly: (parsed && parsed.weekly) || {},
+            monthly: (parsed && parsed.monthly) || {}
+          };
+          return;
         }
-        entry.total += Number(tx.total) || 0;
-        entry.orders += 1;
+      } catch (e) {
+        console.error('Failed to load sales records:', e);
+      }
+      // First run after this update: seed the ledger from the saved
+      // transactions so old sales still show up in the records.
+      salesRecords = emptySalesRecords();
+      transactions.forEach((tx) => applyTransactionToSalesRecords(tx, 1));
+      saveSalesRecordsToStorage();
+    }
+
+    // direction: 1 = sale completed, -1 = sale removed from history.
+    function applyTransactionToSalesRecords(tx, direction) {
+      if (!tx) return;
+      if (!salesRecords) salesRecords = emptySalesRecords();
+      ['weekly', 'monthly'].forEach((mode) => {
+        const bucket = getHistoryBucket(tx.timestamp, mode);
+        const map = salesRecords[mode];
+        let entry = map[bucket.key];
+        if (!entry) {
+          if (direction < 0) return;
+          entry = {
+            start: bucket.start.toISOString(),
+            label: bucket.label,
+            range: bucket.range,
+            total: 0,
+            orders: 0
+          };
+          map[bucket.key] = entry;
+        }
+        entry.total = Math.round(((Number(entry.total) || 0) + direction * (Number(tx.total) || 0)) * 100) / 100;
+        entry.orders = Math.max(0, (Number(entry.orders) || 0) + direction);
+        if (entry.orders === 0) delete map[bucket.key];
       });
-      return Array.from(map.values()).sort((a, b) => b.start - a.start);
+    }
+
+    function getSalesRecordBuckets(mode) {
+      if (!salesRecords) return [];
+      const map = salesRecords[mode] || {};
+      return Object.keys(map)
+        .map((key) => {
+          const entry = map[key] || {};
+          return {
+            key,
+            start: new Date(entry.start),
+            label: entry.label || '',
+            range: entry.range || entry.label || '',
+            total: Number(entry.total) || 0,
+            orders: Number(entry.orders) || 0
+          };
+        })
+        .sort((a, b) => b.start - a.start);
     }
 
     function openSalesRecordsModal() {
@@ -4537,7 +4617,7 @@
 
     function renderSalesRecordsModal() {
       const mode = salesRecordMode;
-      const buckets = buildHistoryBuckets(transactions, mode);
+      const buckets = getSalesRecordBuckets(mode);
 
       document.getElementById('sales-records-title').textContent =
         mode === 'weekly' ? 'Weekly Sales Record' : 'Monthly Sales Record';
@@ -4590,6 +4670,46 @@
       document.getElementById('sales-records-footer').textContent = buckets.length
         ? `${buckets.length} ${mode === 'weekly' ? 'week' : 'month'}${buckets.length === 1 ? '' : 's'} • ${orders} order${orders === 1 ? '' : 's'} • Total ${formatSaleMoney(total)}`
         : 'No sales records yet.';
+
+      // Reset the Clear Records button (cancels any pending confirmation)
+      document.getElementById('clear-records-confirm-group').innerHTML = `
+        <button
+          onclick="promptClearSalesRecords()"
+          class="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-[11px] font-bold hover:bg-red-100 transition"
+        >
+          Clear Records
+        </button>
+      `;
+    }
+
+    function promptClearSalesRecords() {
+      const isEmpty = !getSalesRecordBuckets('weekly').length && !getSalesRecordBuckets('monthly').length;
+      if (isEmpty) {
+        showToast('No sales records to clear');
+        return;
+      }
+      document.getElementById('clear-records-confirm-group').innerHTML = `
+        <span class="text-xs font-bold text-red-600 dark:text-red-400">Delete weekly & monthly records?</span>
+        <button
+          onclick="confirmClearSalesRecords()"
+          class="px-3 py-2 rounded-xl bg-red-600 text-white text-[11px] font-extrabold hover:bg-red-700"
+        >
+          Yes, Clear Records
+        </button>
+        <button
+          onclick="renderSalesRecordsModal()"
+          class="px-3 py-2 rounded-xl bg-stone-200 dark:bg-stone-700 text-[11px] font-bold"
+        >
+          Cancel
+        </button>
+      `;
+    }
+
+    function confirmClearSalesRecords() {
+      salesRecords = emptySalesRecords();
+      saveSalesRecordsToStorage();
+      renderSalesRecordsModal();
+      showToast('Weekly & monthly sales records cleared');
     }
 
     function openHistoryModal() {
@@ -4766,6 +4886,10 @@
       pendingDeleteOrderIndex = null;
 
       saveTransactionsToStorage();
+      // A deleted (cancelled) order is not a real sale, so pull it out of the
+      // weekly/monthly records too. Clearing the whole history does NOT.
+      applyTransactionToSalesRecords(removed, -1);
+      saveSalesRecordsToStorage();
       updateHeaderSalesBadge();
       renderHistoryModal();
       showToast(`Deleted cancelled order ${removedOrderNo}`);
@@ -4782,7 +4906,7 @@
       if (transactions.length === 0) return;
       pendingDeleteOrderIndex = null;
       document.getElementById('clear-history-confirm-group').innerHTML = `
-        <span class="text-xs font-bold text-red-600 dark:text-red-400">Delete all sales logs?</span>
+        <span class="text-xs font-bold text-red-600 dark:text-red-400">Delete all sales logs? Weekly & monthly records stay.</span>
         <button
           onclick="confirmClearHistory()"
           class="px-3 py-2 rounded-xl bg-red-600 text-white text-xs font-extrabold hover:bg-red-700"
@@ -4804,7 +4928,7 @@
       saveTransactionsToStorage();
       updateHeaderSalesBadge();
       renderHistoryModal();
-      showToast('Transaction history cleared');
+      showToast('History cleared — weekly & monthly records kept');
     }
 
     function exportTransactionsCSV() {
