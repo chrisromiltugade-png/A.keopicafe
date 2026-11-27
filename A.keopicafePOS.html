@@ -516,6 +516,19 @@
               <span id="app-menu-theme-text" class="min-w-0 flex-1 break-words">Dark Mode</span>
               <span id="app-menu-theme-state" class="shrink-0 rounded-md bg-cream-200 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-stone-600 dark:bg-stone-700 dark:text-amber-300">Off</span>
             </button>
+
+            <button
+              type="button"
+              onclick="appMenuAction('sound')"
+              class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-stone-700 dark:text-stone-200 hover:bg-cream-200/70 dark:hover:bg-stone-700 transition"
+              title="Notification sound for new customer orders"
+            >
+              <svg class="w-4 h-4 shrink-0 text-forest-700 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .5-.2 1-.6 1.4L4 17h5m6 0a3 3 0 11-6 0" />
+              </svg>
+              <span class="min-w-0 flex-1 break-words">Order Sound</span>
+              <span id="app-menu-sound-state" class="shrink-0 rounded-md bg-cream-200 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-stone-600 dark:bg-stone-700 dark:text-amber-300">On</span>
+            </button>
           </div>
         </div>
       </div>
@@ -3068,6 +3081,7 @@
       ITEM_DISCOUNT_MIGRATION: 'akeopi_pos_item_discount_migration_v1',
       TICKET: 'akeopi_pos_ticket_v1',
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
+      INCOMING_SOUND: 'akeopi_pos_incoming_sound_v1',
       STORE_HOURS: 'akeopi_pos_store_hours_v1',
       ADDON_GROUPS: 'akeopi_pos_addon_groups_v1',
       SALES_RECORDS: 'akeopi_pos_sales_records_v1',
@@ -3110,6 +3124,10 @@
     let selectedAddonIndices = new Set();
     let modalQuantity = 1;
     let pendingCustomerOrders = [];
+    // Incoming-order sound: remember which pending ids we've already seen so
+    // only genuinely new customer orders trigger the chime.
+    let knownPendingOrderIds = null;
+    const PAGE_LOADED_AT = Date.now();
     // Parked tickets: orders that are not paid yet. Kept in their own
     // localStorage list so they survive refreshes until charged.
     let parkedOrders = [];
@@ -3155,6 +3173,7 @@
       initAppSplash();
       initTheme();
       initAppMenu();
+      initIncomingSound();
       loadPersistedData();
       populateManageCategoryDropdown();
       renderCategoryTabs();
@@ -3412,6 +3431,10 @@
     }
 
     function appMenuAction(action) {
+      if (action === 'sound') {
+        toggleIncomingSound();
+        return;
+      }
       toggleAppMenu(false);
       if (action === 'records') openSalesRecordsModal();
       else if (action === 'menu') openManageMenuModal();
@@ -6189,20 +6212,119 @@
           .collection('orders')
           .where('status', '==', 'pending')
           .onSnapshot((snapshot) => {
-            pendingCustomerOrders = snapshot.docs
+            const incoming = snapshot.docs
               .map((doc) => ({ id: doc.id, ...doc.data() }))
               .sort((a, b) => {
                 const at = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
                 const bt = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
                 return bt - at;
               });
+            const firstLoad = knownPendingOrderIds === null;
+            const newOrders = incoming.filter((order) => {
+              if (knownPendingOrderIds && knownPendingOrderIds.has(order.id)) return false;
+              if (firstLoad) {
+                // Old pending orders that predate this app session stay silent;
+                // only ones created after the page opened get the chime.
+                const createdMs = order.createdAt?.toMillis ? order.createdAt.toMillis() : 0;
+                return createdMs > PAGE_LOADED_AT;
+              }
+              return true;
+            });
+            knownPendingOrderIds = new Set(incoming.map((order) => order.id));
+            pendingCustomerOrders = incoming;
             renderPendingCustomerOrders();
+            if (newOrders.length > 0) notifyNewCustomerOrders(newOrders);
           }, (error) => {
             console.error('Customer order listener failed:', error);
           });
       } catch (error) {
         console.error('Firebase initialization failed:', error);
       }
+    }
+
+    // =========================================================================
+    // 12b. 🔔 INCOMING ORDER SOUND (Web Audio — walang external file)
+    // =========================================================================
+    let incomingSoundCtx = null;
+    let incomingSoundEnabled = true;
+
+    function initIncomingSound() {
+      incomingSoundEnabled = localStorage.getItem(STORAGE_KEYS.INCOMING_SOUND) !== 'off';
+      updateIncomingSoundUi();
+      // Phones block audio until the user taps something — unlock on first tap.
+      const unlock = () => { unlockIncomingAudio(); };
+      document.addEventListener('pointerdown', unlock, { once: true });
+      document.addEventListener('keydown', unlock, { once: true });
+    }
+
+    function updateIncomingSoundUi() {
+      const state = document.getElementById('app-menu-sound-state');
+      if (state) state.textContent = incomingSoundEnabled ? 'On' : 'Off';
+    }
+
+    function toggleIncomingSound() {
+      incomingSoundEnabled = !incomingSoundEnabled;
+      localStorage.setItem(STORAGE_KEYS.INCOMING_SOUND, incomingSoundEnabled ? 'on' : 'off');
+      updateIncomingSoundUi();
+      if (incomingSoundEnabled) {
+        playIncomingOrderSound();
+        showToast('Order sound: On');
+      } else {
+        showToast('Order sound: Off');
+      }
+    }
+
+    function unlockIncomingAudio() {
+      try {
+        if (!incomingSoundCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) return null;
+          incomingSoundCtx = new Ctx();
+        }
+        if (incomingSoundCtx.state === 'suspended') incomingSoundCtx.resume().catch(() => {});
+        return incomingSoundCtx;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function playIncomingOrderSound() {
+      if (!incomingSoundEnabled) return;
+      if (navigator.vibrate) navigator.vibrate([140, 90, 140, 90, 280]);
+      const ctx = unlockIncomingAudio();
+      if (!ctx) return;
+      // Tri-tone chime played twice so it cuts through cafe noise.
+      const notes = [
+        { freq: 880.0, offset: 0.00, dur: 0.16 },
+        { freq: 1174.7, offset: 0.17, dur: 0.16 },
+        { freq: 1568.0, offset: 0.34, dur: 0.36 }
+      ];
+      const start = ctx.currentTime + 0.03;
+      for (let pass = 0; pass < 2; pass++) {
+        notes.forEach((note) => {
+          const at = start + pass * 1.05 + note.offset;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(note.freq, at);
+          gain.gain.setValueAtTime(0.0001, at);
+          gain.gain.exponentialRampToValueAtTime(0.4, at + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, at + note.dur);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(at);
+          osc.stop(at + note.dur + 0.03);
+        });
+      }
+    }
+
+    function notifyNewCustomerOrders(newOrders) {
+      const firstName = newOrders[0]?.customerName || 'Walk-in Customer';
+      const label = newOrders.length === 1
+        ? `🔔 New customer order: ${firstName}`
+        : `🔔 ${newOrders.length} new customer orders`;
+      playIncomingOrderSound();
+      showToast(label);
     }
 
     function togglePendingOrdersPanel(open) {
