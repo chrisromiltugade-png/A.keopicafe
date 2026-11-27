@@ -399,6 +399,20 @@
       <!-- Action Buttons -->
       <div class="order-2 lg:order-3 flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
         <button
+          id="parked-orders-btn"
+          onclick="openParkedOrdersModal()"
+          class="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
+          title="Pending (unpaid) orders"
+        >
+          <svg class="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" />
+          </svg>
+          <span class="hidden sm:inline">Pending</span>
+          <span id="parked-orders-badge" class="hidden min-w-5 px-1.5 py-0.5 rounded-full bg-amber-500 text-stone-950 text-[11px] font-extrabold text-center">0</span>
+        </button>
+
+        <button
           id="pending-orders-btn"
           onclick="togglePendingOrdersPanel()"
           class="relative flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
@@ -709,17 +723,29 @@
           </div>
         </div>
 
-        <button
-          id="checkout-btn"
-          onclick="openCheckoutModal()"
-          disabled
-          class="w-full py-3.5 px-4 rounded-2xl bg-forest-800 hover:bg-forest-700 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-forest-900/15 transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
-        >
-          <span>Proceed to Payment</span>
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-          </svg>
-        </button>
+        <div class="flex items-stretch gap-2">
+          <button
+            id="park-order-btn"
+            type="button"
+            onclick="openParkOrderModal()"
+            title="Save this order as an unpaid pending order"
+            class="shrink-0 px-3 py-3.5 rounded-2xl border-2 border-cream-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-espresso-900 dark:text-stone-200 font-extrabold text-xs hover:bg-cream-100 dark:hover:bg-stone-700 transition flex flex-col items-center justify-center gap-0.5"
+          >
+            <span class="text-base leading-none">⏳</span>
+            <span class="whitespace-nowrap">Pending</span>
+          </button>
+          <button
+            id="checkout-btn"
+            onclick="openCheckoutModal()"
+            disabled
+            class="flex-1 min-w-0 py-3.5 px-3 sm:px-4 rounded-2xl bg-forest-800 hover:bg-forest-700 disabled:bg-stone-300 dark:disabled:bg-stone-800 disabled:text-stone-500 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-forest-900/15 transition flex items-center justify-center gap-2 cursor-pointer disabled:cursor-not-allowed"
+          >
+            <span class="min-w-0 break-words text-left">Proceed to Payment</span>
+            <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+            </svg>
+          </button>
+        </div>
       </div>
     </aside>
   </div>
@@ -961,6 +987,13 @@
         >
           Confirm & Print Receipt
         </button>
+        <button
+          type="button"
+          onclick="openParkOrderModal()"
+          class="w-full py-2.5 px-4 rounded-2xl border-2 border-cream-300 dark:border-stone-700 bg-white dark:bg-stone-800 text-espresso-900 dark:text-stone-200 font-extrabold text-xs hover:bg-cream-100 dark:hover:bg-stone-700 transition"
+        >
+          ⏳ Save as Pending (Not Paid Yet)
+        </button>
       </div>
     </div>
   </div>
@@ -1122,6 +1155,86 @@
             class="px-3 py-2 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900 text-[11px] font-bold hover:bg-red-100 transition"
           >
             Clear Records
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4c: PENDING ORDERS (UNPAID) ==================== -->
+  <div id="parked-orders-modal" class="fixed inset-0 z-[60] hidden items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+    <div class="bg-cream-50 dark:bg-stone-900 border border-cream-200 dark:border-stone-800 rounded-3xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-cream-200 dark:border-stone-800 flex items-center justify-between bg-white dark:bg-stone-900">
+        <div class="min-w-0">
+          <h3 class="text-lg font-extrabold text-forest-800 dark:text-amber-200">Pending Orders (Unpaid)</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 break-words">Saved tickets na hindi pa bayad — open to edit or charge</p>
+        </div>
+        <button
+          onclick="closeParkedOrdersModal()"
+          class="p-2 rounded-xl bg-cream-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div id="parked-orders-list" class="flex-1 overflow-y-auto p-4 sm:p-5 space-y-2.5">
+        <!-- Pending (unpaid) tickets injected dynamically -->
+      </div>
+
+      <div class="p-4 border-t border-cream-200 dark:border-stone-800 bg-white dark:bg-stone-900">
+        <p id="parked-orders-footer" class="text-[11px] font-semibold text-stone-500 dark:text-stone-400 break-words">—</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL 4d: SAVE AS PENDING ORDER ==================== -->
+  <div id="park-order-modal" class="fixed inset-0 z-[70] hidden items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs">
+    <div class="bg-cream-50 dark:bg-stone-900 border border-cream-200 dark:border-stone-800 rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-cream-200 dark:border-stone-800 flex items-center justify-between bg-white dark:bg-stone-900">
+        <div class="min-w-0">
+          <h3 class="text-lg font-extrabold text-forest-800 dark:text-amber-200">Save as Pending Order</h3>
+          <p class="text-xs text-stone-500 dark:text-stone-400 break-words">Hindi pa bayad? I-save muna, then load it again later.</p>
+        </div>
+        <button
+          onclick="closeParkOrderModal()"
+          class="shrink-0 p-2 rounded-xl bg-cream-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <label for="park-order-label" class="block text-xs font-extrabold uppercase tracking-wider text-espresso-800 dark:text-stone-300 mb-1.5">
+            Customer Name / Table Label <span class="font-semibold normal-case text-stone-400">(Optional)</span>
+          </label>
+          <input
+            id="park-order-label"
+            type="text"
+            placeholder="e.g., Table 3 / Juan / Blue cap"
+            class="w-full px-3.5 py-2.5 rounded-xl bg-white dark:bg-stone-800 border border-cream-300 dark:border-stone-700 text-sm focus:outline-none focus:ring-2 focus:ring-forest-700 dark:focus:ring-amber-400"
+          />
+        </div>
+        <div id="park-order-summary" class="rounded-xl bg-cream-100 dark:bg-stone-800 border border-cream-300 dark:border-stone-700 px-3 py-2 text-xs font-bold text-espresso-900 dark:text-stone-200 break-words">
+          0 items
+        </div>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            onclick="closeParkOrderModal()"
+            class="flex-1 py-2.5 rounded-2xl bg-cream-200 dark:bg-stone-800 text-espresso-900 dark:text-stone-200 font-bold text-sm hover:bg-cream-300 dark:hover:bg-stone-700 transition"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onclick="confirmParkOrder()"
+            class="flex-1 py-2.5 rounded-2xl bg-forest-800 hover:bg-forest-700 text-white font-extrabold text-sm shadow transition"
+          >
+            Save Pending
           </button>
         </div>
       </div>
@@ -2934,7 +3047,8 @@
       INCOMING_DONE: 'akeopi_pos_incoming_done_v1',
       STORE_HOURS: 'akeopi_pos_store_hours_v1',
       ADDON_GROUPS: 'akeopi_pos_addon_groups_v1',
-      SALES_RECORDS: 'akeopi_pos_sales_records_v1'
+      SALES_RECORDS: 'akeopi_pos_sales_records_v1',
+      PENDING_ORDERS: 'akeopi_pos_pending_orders_v1'
     };
 
     // Bump this ID when newly added default items must reach installs
@@ -2973,6 +3087,10 @@
     let selectedAddonIndices = new Set();
     let modalQuantity = 1;
     let pendingCustomerOrders = [];
+    // Parked tickets: orders that are not paid yet. Kept in their own
+    // localStorage list so they survive refreshes until charged.
+    let parkedOrders = [];
+    let parkedDeleteId = null;
     let handledIncomingOrders = [];
     let storeHours = { open: '10:00', close: '22:00' };
     let addonGroups = null;
@@ -3062,6 +3180,8 @@
 
       loadSalesRecords();
       restoreActiveTicket();
+      loadParkedOrders();
+      updateParkedOrdersBadge();
       restoreHandledIncomingOrders();
       restoreStoreHours();
       renderPendingCustomerOrders();
@@ -4147,6 +4267,290 @@
     }
 
     // =========================================================================
+    // 7b. PENDING (UNPAID) ORDERS — parked tickets
+    // A cashier can park a ticket that is not paid yet, then load it again
+    // (and edit its items) when the customer is ready to pay.
+    // =========================================================================
+    function loadParkedOrders() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.PENDING_ORDERS);
+        const list = raw ? JSON.parse(raw) : [];
+        parkedOrders = Array.isArray(list)
+          ? list
+              .filter((order) => order && typeof order.id === 'string' && Array.isArray(order.items))
+              .map((order) => ({
+                ...order,
+                items: order.items.map((item) => ({
+                  ...item,
+                  qty: Number(item.qty) || 1,
+                  unitPrice: Number(item.unitPrice) || 0
+                }))
+              }))
+          : [];
+      } catch (e) {
+        console.error('Failed to load pending orders:', e);
+        parkedOrders = [];
+      }
+    }
+
+    function saveParkedOrders() {
+      try {
+        localStorage.setItem(STORAGE_KEYS.PENDING_ORDERS, JSON.stringify(parkedOrders));
+      } catch (e) {
+        console.error('Failed to save pending orders:', e);
+      }
+    }
+
+    function updateParkedOrdersBadge() {
+      const badge = document.getElementById('parked-orders-badge');
+      if (!badge) return;
+      badge.textContent = parkedOrders.length;
+      badge.classList.toggle('hidden', parkedOrders.length === 0);
+    }
+
+    function getParkedOrderTotal(order) {
+      if (!order) return 0;
+      const items = Array.isArray(order.items) ? order.items : [];
+      const net = items.reduce((sum, item) => {
+        const own = Number(item.discountPercent);
+        const pct = isFinite(own) && own > 0 ? Math.min(100, own) : item.seniorPwd ? SENIOR_PWD_DISCOUNT_PERCENT : 0;
+        const netUnit = Math.round((Number(item.unitPrice) || 0) * (100 - pct)) / 100;
+        return sum + netUnit * (Number(item.qty) || 0);
+      }, 0);
+      const fee = order.deliveryFeeEnabled ? Math.max(0, Number(order.deliveryFeeAmount) || 0) : 0;
+      return Math.round((net + fee) * 100) / 100;
+    }
+
+    function openParkOrderModal() {
+      if (cart.length === 0) {
+        showToast('Wala pang laman ang order');
+        return;
+      }
+      const nameInput = document.getElementById('customer-note-input');
+      const labelInput = document.getElementById('park-order-label');
+      if (labelInput) labelInput.value = nameInput ? nameInput.value.trim() : '';
+      const qty = cart.reduce((sum, item) => sum + item.qty, 0);
+      document.getElementById('park-order-summary').textContent =
+        `${qty} item${qty === 1 ? '' : 's'} • ${formatSaleMoney(getCartTotalAmount())}`;
+      const modal = document.getElementById('park-order-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (labelInput) setTimeout(() => labelInput.focus(), 50);
+    }
+
+    function closeParkOrderModal() {
+      const modal = document.getElementById('park-order-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function confirmParkOrder() {
+      if (cart.length === 0) {
+        closeParkOrderModal();
+        return;
+      }
+      const labelInput = document.getElementById('park-order-label');
+      const label = labelInput ? labelInput.value.trim() : '';
+      const nameInput = document.getElementById('customer-note-input');
+      const customerName = nameInput ? nameInput.value.trim() : '';
+
+      parkedOrders.unshift({
+        id: 'park-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        label: label || customerName || '',
+        createdAt: new Date().toISOString(),
+        orderType,
+        customerName,
+        customerNameEnabled: isCustomerNameEnabled(),
+        deliveryFeeEnabled,
+        deliveryFeeAmount: getActiveDeliveryFee(),
+        items: JSON.parse(JSON.stringify(cart))
+      });
+      saveParkedOrders();
+      updateParkedOrdersBadge();
+
+      closeParkOrderModal();
+      closeCheckoutModal();
+      cart = [];
+      resetDeliveryFeeControl();
+      resetCustomerNameControl();
+      try { localStorage.removeItem(STORAGE_KEYS.TICKET); } catch (e) {}
+      renderCart();
+      renderParkedOrdersModal();
+      toggleMobileCart(false);
+      showToast('Saved to Pending Orders (unpaid)');
+    }
+
+    function openParkedOrdersModal() {
+      parkedDeleteId = null;
+      renderParkedOrdersModal();
+      const modal = document.getElementById('parked-orders-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeParkedOrdersModal() {
+      parkedDeleteId = null;
+      const modal = document.getElementById('parked-orders-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderParkedOrdersModal() {
+      const listEl = document.getElementById('parked-orders-list');
+      const footerEl = document.getElementById('parked-orders-footer');
+      if (!listEl) return;
+
+      if (!parkedOrders.length) {
+        listEl.innerHTML = `
+          <div class="py-10 text-center text-stone-400">
+            <p class="text-sm font-bold">No pending orders</p>
+            <p class="text-xs mt-1">Unpaid tickets saved from the Current Order will appear here.</p>
+          </div>
+        `;
+        if (footerEl) footerEl.textContent = 'Tap “Pending” in the Current Order to save an unpaid ticket.';
+        return;
+      }
+
+      const totals = parkedOrders.reduce((sum, order) => sum + getParkedOrderTotal(order), 0);
+      if (footerEl) {
+        footerEl.textContent = `${parkedOrders.length} pending • Total ${formatSaleMoney(totals)}`;
+      }
+
+      listEl.innerHTML = parkedOrders
+        .map((order) => {
+          const label = escapeHtmlAttr(order.label || order.customerName || 'Pending order');
+          const createdAt = order.createdAt ? new Date(order.createdAt) : new Date();
+          const timeLabel = createdAt.toLocaleString('en-PH', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+          const qty = order.items.reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+          const itemsText = escapeHtmlAttr(order.items.map((item) => `${item.qty}× ${item.name}`).join(', '));
+          const total = getParkedOrderTotal(order);
+          const confirming = parkedDeleteId === order.id;
+
+          const actions = confirming
+            ? `
+              <div class="flex items-center gap-1.5">
+                <button type="button" onclick="confirmDeleteParkedOrder('${order.id}')"
+                  class="px-2.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[11px] font-extrabold transition">Yes, Delete</button>
+                <button type="button" onclick="cancelDeleteParkedOrder()"
+                  class="px-2.5 py-1.5 rounded-xl bg-stone-200 dark:bg-stone-700 text-stone-700 dark:text-stone-200 text-[11px] font-bold">Cancel</button>
+              </div>
+            `
+            : `
+              <div class="flex flex-wrap items-center gap-1.5">
+                <button type="button" onclick="resumeParkedOrder('${order.id}')"
+                  class="px-3 py-1.5 rounded-xl bg-forest-800 hover:bg-forest-700 text-white text-[11px] font-extrabold transition flex items-center gap-1">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  Open / Edit
+                </button>
+                <button type="button" onclick="promptDeleteParkedOrder('${order.id}')"
+                  class="px-2.5 py-1.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 hover:bg-red-100 text-[11px] font-bold transition">
+                  Delete
+                </button>
+              </div>
+            `;
+
+          return `
+            <div class="p-3.5 rounded-2xl bg-white dark:bg-stone-800 border border-cream-200 dark:border-stone-700">
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <span class="inline-block max-w-full break-words font-extrabold text-sm text-forest-800 dark:text-amber-200">${label}</span>
+                  <p class="mt-0.5 text-[11px] font-semibold text-stone-500 dark:text-stone-400 break-words">${order.orderType} • ${qty} item${qty === 1 ? '' : 's'} • ${timeLabel}</p>
+                </div>
+                <span class="shrink-0 whitespace-nowrap font-extrabold text-sm text-forest-800 dark:text-amber-300">₱${total.toFixed(2)}</span>
+              </div>
+              <p class="mt-1 text-[11px] text-stone-500 dark:text-stone-400 break-words">${itemsText}</p>
+              <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <span class="rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 px-2 py-0.5 text-[10px] font-extrabold">UNPAID</span>
+                ${actions}
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    function resumeParkedOrder(id) {
+      const order = parkedOrders.find((entry) => entry.id === id);
+      if (!order) return;
+
+      if (cart.length > 0) {
+        closeParkedOrdersModal();
+        toggleMobileCart(true);
+        showToast('May laman pa ang current order — i-charge o i-clear muna');
+        return;
+      }
+
+      const items = (order.items || []).map((item) => ({
+        ...item,
+        cartId: 'ci-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+        qty: Number(item.qty) || 1,
+        unitPrice: Number(item.unitPrice) || 0,
+        discountPercent: item.seniorPwd ? SENIOR_PWD_DISCOUNT_PERCENT : Number(item.discountPercent) || 0
+      }));
+      if (items.length === 0) {
+        showToast('Walang items ang pending order');
+        return;
+      }
+
+      cart = items;
+      parkedOrders = parkedOrders.filter((entry) => entry.id !== id);
+      saveParkedOrders();
+      updateParkedOrdersBadge();
+
+      setOrderType(order.orderType === 'Take-Out' ? 'Take-Out' : 'Dine-In');
+
+      resetCustomerNameControl();
+      const nameToUse = order.customerName || order.label || '';
+      if (order.customerNameEnabled || order.customerName) {
+        const nameInput = document.getElementById('customer-note-input');
+        const nameToggle = document.getElementById('customer-name-toggle');
+        const nameField = document.getElementById('customer-name-field');
+        if (nameInput) nameInput.value = nameToUse;
+        if (nameToggle) nameToggle.checked = true;
+        if (nameField) nameField.classList.remove('hidden');
+      }
+
+      resetDeliveryFeeControl();
+      if (order.deliveryFeeEnabled && Number(order.deliveryFeeAmount || 0) > 0) {
+        deliveryFeeEnabled = true;
+        deliveryFeeAmount = Number(order.deliveryFeeAmount);
+        document.getElementById('delivery-fee-checkbox').checked = true;
+        document.getElementById('delivery-fee-input').disabled = false;
+        document.getElementById('delivery-fee-input').value = deliveryFeeAmount;
+      }
+
+      renderCart();
+      closeParkedOrdersModal();
+      toggleMobileCart(true);
+      showToast('Pending order loaded — edit or charge it');
+    }
+
+    function promptDeleteParkedOrder(id) {
+      parkedDeleteId = id;
+      renderParkedOrdersModal();
+    }
+
+    function cancelDeleteParkedOrder() {
+      parkedDeleteId = null;
+      renderParkedOrdersModal();
+    }
+
+    function confirmDeleteParkedOrder(id) {
+      parkedOrders = parkedOrders.filter((entry) => entry.id !== id);
+      parkedDeleteId = null;
+      saveParkedOrders();
+      updateParkedOrdersBadge();
+      renderParkedOrdersModal();
+      showToast('Pending order deleted');
+    }
+
+    // =========================================================================
     // 8. CHECKOUT & PAYMENT FLOW (CASH, GCASH, MAYA)
     // =========================================================================
     function openCheckoutModal() {
@@ -4931,6 +5335,63 @@
       showToast('History cleared — weekly & monthly records kept');
     }
 
+    // Categories counted as drinks in the CSV totals summary.
+    const DRINK_SUMMARY_CATEGORIES = [
+      'Classic Coffee',
+      'Special Coffee',
+      'Strawberry & Matcha',
+      'Non-Coffee',
+      'Soda, Frizz & Refresher',
+      'Frappe Series'
+    ];
+
+    // Matches the POS drink categories plus common aliases from the
+    // customer page fallback menu (Coffee, Frappe, etc.).
+    function isDrinkSummaryCategory(category) {
+      const value = String(category || '').toLowerCase();
+      if (!value) return false;
+      if (DRINK_SUMMARY_CATEGORIES.some((entry) => entry.toLowerCase() === value)) return true;
+      return ['coffee', 'frappe', 'matcha', 'refresher', 'soda', 'milk tea'].some((key) => value.includes(key));
+    }
+
+    // Aggregates every drink ordered across all saved transactions:
+    // total qty sold and total sales (after Senior/PWD line discount).
+    function buildDrinksSummary() {
+      const map = new Map();
+      transactions.forEach((tx) => {
+        (tx.items || []).forEach((item) => {
+          let category = item.category || '';
+          if (!category && item.itemId) {
+            const menuItem = menuItems.find((entry) => entry.id === item.itemId);
+            if (menuItem) category = menuItem.category || '';
+          }
+          if (!isDrinkSummaryCategory(category)) return;
+          const own = Number(item.discountPercent);
+          const pct = isFinite(own) && own > 0 ? Math.min(100, own) : item.seniorPwd ? SENIOR_PWD_DISCOUNT_PERCENT : 0;
+          const qty = Number(item.qty) || 0;
+          const netUnit = Math.round((Number(item.unitPrice) || 0) * (100 - pct)) / 100;
+          const key = `${item.name}||${item.variantLabel || ''}`;
+          const entry = map.get(key) || {
+            name: item.name || 'Drink',
+            variant: item.variantLabel || '',
+            category,
+            qty: 0,
+            total: 0
+          };
+          entry.qty += qty;
+          entry.total = Math.round((entry.total + netUnit * qty) * 100) / 100;
+          map.set(key, entry);
+        });
+      });
+      return Array.from(map.values()).sort(
+        (a, b) => b.qty - a.qty || String(a.name).localeCompare(String(b.name))
+      );
+    }
+
+    function csvEscape(value) {
+      return `"${String(value == null ? '' : value).replace(/"/g, '""')}"`;
+    }
+
     function exportTransactionsCSV() {
       if (transactions.length === 0) {
         showToast('No transactions to export');
@@ -4956,7 +5417,29 @@
         ].join(',');
       });
 
-      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows].join('\n');
+      const lines = [headers.join(','), ...rows];
+
+      // Drinks totals summary at the bottom of the CSV.
+      const drinks = buildDrinksSummary();
+      if (drinks.length > 0) {
+        const totalQty = drinks.reduce((sum, d) => sum + d.qty, 0);
+        const totalSales = Math.round(drinks.reduce((sum, d) => sum + d.total, 0) * 100) / 100;
+        lines.push('');
+        lines.push('DRINKS ORDERED - TOTALS');
+        lines.push(['Drink', 'Size / Variant', 'Category', 'Qty Sold', 'Sales (PHP)'].join(','));
+        drinks.forEach((drink) => {
+          lines.push([
+            csvEscape(drink.name),
+            csvEscape(drink.variant),
+            csvEscape(drink.category),
+            drink.qty,
+            drink.total.toFixed(2)
+          ].join(','));
+        });
+        lines.push(['TOTAL DRINKS', '', '', totalQty, totalSales.toFixed(2)].join(','));
+      }
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + lines.join('\n');
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement('a');
       link.setAttribute('href', encodedUri);
