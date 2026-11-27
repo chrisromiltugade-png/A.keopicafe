@@ -440,61 +440,84 @@
           </span>
         </button>
 
-        <!-- Weekly & Monthly Sales Records Button -->
-        <button
-          onclick="openSalesRecordsModal()"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
-          title="Weekly & Monthly Sales Records"
-        >
-          <svg class="w-4 h-4 text-forest-700 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 20h18M7 20V11m5 9V4m5 16v-7" />
-          </svg>
-          <span class="hidden md:inline">Records</span>
-        </button>
+        <!-- ☰ App Menu: Records, Menu, Hours, Light/Dark -->
+        <div id="app-menu-wrap" class="relative">
+          <button
+            id="app-menu-btn"
+            type="button"
+            onclick="toggleAppMenu()"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="app-menu-panel"
+            class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
+            title="Records, Menu, Hours, Light/Dark Mode"
+          >
+            <svg class="w-5 h-5 shrink-0 text-espresso-700 dark:text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+            <span class="hidden sm:inline">More</span>
+          </button>
 
-        <!-- Manage Menu Button -->
-        <button
-          onclick="openManageMenuModal()"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
-          title="Add, Edit, or Reset Menu Items"
-        >
-          <svg class="w-4 h-4 text-espresso-700 dark:text-amber-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          <span class="hidden md:inline">Menu</span>
-        </button>
+          <div
+            id="app-menu-panel"
+            class="hidden absolute right-0 top-full z-50 mt-2 w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-cream-300 dark:border-stone-700 bg-white dark:bg-stone-800 p-1.5 shadow-2xl space-y-0.5"
+          >
+            <button
+              type="button"
+              onclick="appMenuAction('records')"
+              class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-stone-700 dark:text-stone-200 hover:bg-cream-200/70 dark:hover:bg-stone-700 transition"
+            >
+              <svg class="w-4 h-4 shrink-0 text-forest-700 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 20h18M7 20V11m5 9V4m5 16v-7" />
+              </svg>
+              <span class="min-w-0 flex-1 break-words">Records</span>
+            </button>
 
-        <!-- Store Hours Button -->
-        <button
-          id="store-hours-btn"
-          onclick="openStoreHoursModal()"
-          class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-xs sm:text-sm font-semibold transition shadow-sm"
-          title="Set store opening and closing time"
-        >
-          <svg class="w-4 h-4 text-forest-700 dark:text-amber-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="9" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" />
-          </svg>
-          <span class="hidden md:inline">Hours</span>
-        </button>
+            <button
+              type="button"
+              onclick="appMenuAction('menu')"
+              class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-stone-700 dark:text-stone-200 hover:bg-cream-200/70 dark:hover:bg-stone-700 transition"
+            >
+              <svg class="w-4 h-4 shrink-0 text-espresso-700 dark:text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <span class="min-w-0 flex-1 break-words">Menu</span>
+            </button>
 
-        <!-- Light / Dark Theme Toggle -->
-        <button
-          id="theme-toggle-btn"
-          onclick="toggleTheme()"
-          class="p-2 rounded-xl bg-white dark:bg-stone-800 hover:bg-cream-200/70 dark:hover:bg-stone-700 border border-cream-300 dark:border-stone-700 text-espresso-800 dark:text-amber-300 transition shadow-sm"
-          title="Toggle Light / Dark Mode"
-        >
-          <!-- Sun Icon (shown in Dark Mode) -->
-          <svg id="icon-sun" class="hidden w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="5"></circle>
-            <path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-          </svg>
-          <!-- Moon Icon (shown in Light Mode) -->
-          <svg id="icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-          </svg>
-        </button>
+            <button
+              type="button"
+              onclick="appMenuAction('hours')"
+              class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-stone-700 dark:text-stone-200 hover:bg-cream-200/70 dark:hover:bg-stone-700 transition"
+            >
+              <svg class="w-4 h-4 shrink-0 text-forest-700 dark:text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="9" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2" />
+              </svg>
+              <span class="min-w-0 flex-1 break-words">Hours</span>
+            </button>
+
+            <div class="my-1 border-t border-cream-200 dark:border-stone-700"></div>
+
+            <button
+              type="button"
+              onclick="appMenuAction('theme')"
+              class="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-stone-700 dark:text-stone-200 hover:bg-cream-200/70 dark:hover:bg-stone-700 transition"
+              title="Toggle Light / Dark Mode"
+            >
+              <!-- Sun Icon (shown in Dark Mode) -->
+              <svg id="icon-sun" class="hidden w-4 h-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5"></circle>
+                <path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
+              </svg>
+              <!-- Moon Icon (shown in Light Mode) -->
+              <svg id="icon-moon" class="w-4 h-4 shrink-0 text-espresso-800 dark:text-amber-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+              </svg>
+              <span id="app-menu-theme-text" class="min-w-0 flex-1 break-words">Dark Mode</span>
+              <span id="app-menu-theme-state" class="shrink-0 rounded-md bg-cream-200 px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-stone-600 dark:bg-stone-700 dark:text-amber-300">Off</span>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -3131,6 +3154,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       initAppSplash();
       initTheme();
+      initAppMenu();
       loadPersistedData();
       populateManageCategoryDropdown();
       renderCategoryTabs();
@@ -3371,6 +3395,38 @@
       const isDark = document.documentElement.classList.contains('dark');
       document.getElementById('icon-sun').classList.toggle('hidden', !isDark);
       document.getElementById('icon-moon').classList.toggle('hidden', isDark);
+      const state = document.getElementById('app-menu-theme-state');
+      if (state) state.textContent = isDark ? 'On' : 'Off';
+    }
+
+    // =========================================================================
+    // 4b. ☰ APP MENU (Records, Menu, Hours, Light/Dark) — isang icon lang
+    // =========================================================================
+    function toggleAppMenu(force) {
+      const panel = document.getElementById('app-menu-panel');
+      const btn = document.getElementById('app-menu-btn');
+      if (!panel) return;
+      const open = typeof force === 'boolean' ? force : panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !open);
+      if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+
+    function appMenuAction(action) {
+      toggleAppMenu(false);
+      if (action === 'records') openSalesRecordsModal();
+      else if (action === 'menu') openManageMenuModal();
+      else if (action === 'hours') openStoreHoursModal();
+      else if (action === 'theme') toggleTheme();
+    }
+
+    function initAppMenu() {
+      document.addEventListener('click', event => {
+        const wrap = document.getElementById('app-menu-wrap');
+        if (wrap && !wrap.contains(event.target)) toggleAppMenu(false);
+      });
+      document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') toggleAppMenu(false);
+      });
     }
 
     // =========================================================================
